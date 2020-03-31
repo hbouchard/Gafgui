@@ -1,6 +1,0 @@
-
-% --------------------------------------------------------------------
-function fct_version()
-
-dumb = sprintf('Gafgui version 3.0\nCopyright (C) 2013, by Hugo Bouchard.\nThis program comes with ABSOLUTELY NO WARRANTY. This is free software, and you are welcome to redistribute it under certain conditions. See code header for details.');
-msgbox(dumb,'Version');

@@ -1,4 +1,0 @@
-function  r = fct_real_cubic_root1(c3,c2,c1,c0)
-
-r = fct_real_cubic_roots(c3,c2,c1,c0);
-r = r(:,1);

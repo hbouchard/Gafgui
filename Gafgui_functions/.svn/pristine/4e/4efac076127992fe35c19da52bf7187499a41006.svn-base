@@ -1,9 +1,0 @@
-% --------------------------------------------------------------------
-function h = fct_display(z,del)
-
-x=[-(size(z,2)-1)/2 (size(z,2)-1)/2].*del;
-y=[-(size(z,1)-1)/2 (size(z,1)-1)/2].*del;
-imagesc(x,y,z);
-set(gca,'DataAspectRatio',[1 1 1]);
-set(gcf,'Units','pixels');
-h=gcf;

@@ -1,0 +1,847 @@
+% function handles = fct_MultichCharact2(handles);
+%
+clear all;
+clear functions;
+close all;
+clc;
+fct_AddGafguiFctPath();
+handles = fct_initGafgui();
+close;
+
+button = questdlg('Do you want to start from the beginning?','Shortcut','Yes','No','Yes') ;
+if strcmp(button,'No')
+    flag = 1;
+else
+    flag = 2;
+end
+
+if (flag==2)
+    
+    [posx,posy,rmat,bmat,gmat,delta,nbfilms,stackdir] = fct_GetBands(handles);
+    [posx,posy,rmat,bmat,gmat] = fct_ReduceBands(posx,posy,rmat,bmat,gmat);
+    
+    %Here the value are so far unint16
+    for j = 1:nbfilms
+        rmat{j} = double(rmat{j});
+        gmat{j} = double(gmat{j});
+        bmat{j} = double(bmat{j});
+    end
+    
+    %getting ascending order
+    mux(1:nbfilms) = 0;
+    for j = 1:nbfilms
+        mux(j) = mean(mean(rmat{j}));
+    end
+    [dmb,jorder] = sort(mux);
+    clear mux dmb;
+    jorder = fliplr(jorder); %For OD, order is ascendent but for signal it is descendent
+    for j = 1:nbfilms
+        rtmp{j} = rmat{jorder(j)};  gtmp{j} = gmat{jorder(j)};  btmp{j} = bmat{jorder(j)};
+    end
+    rmat = rtmp; gmat = gtmp; bmat = btmp;
+    clear rtmp gtmp btmp;
+    
+    DOSE = [];
+    nprompt = ceil(nbfilms/10);
+    
+    button = questdlg('How do you wish to enter dose values?','Dose values','File','Manual','File') ;
+    
+    if strcmp(button,'Manual')
+        for j = 1:nprompt
+            clear prompt;
+            for i= 1+10*(j-1):min(10*j,nbfilms)
+                dumb = sprintf('Film #%d\nDose (CMU)',i);
+                prompt{i-10*(j-1)} = dumb;
+            end
+            answer = inputdlg(prompt,'Dose values (CMU)',1);
+            DOSE = cat(1,DOSE,str2double(answer));
+        end
+        DOSE = DOSE';
+        %ici il devrait y avoir une facon de valider les valeurs de dose
+        DOSE = abs(DOSE);
+    else
+        [dfilename,ipathname] = uigetfile({'*.txt'},'Choose file containing dose values');
+        if ~strcmp(class(dfilename),'double')
+            file = fopen(fct_makecleanfilename(ipathname,dfilename),'r');
+            DOSE = fscanf(file,'%f',[1 inf]);
+        else
+            for j = 1:nprompt
+                clear prompt;
+                for i= 1+10*(j-1):min(10*j,nbfilms)
+                    dumb = sprintf('Film #%d\nDose (CMU)',i);
+                    prompt{i-10*(j-1)} = dumb;
+                end
+                answer = inputdlg(prompt,'Dose values (CMU)',1);
+                DOSE = cat(1,DOSE,str2double(answer));
+            end
+            DOSE = DOSE';
+        end
+    end
+    
+    %save step
+    button = questdlg('Do you want to save this step?','Shortcut','Yes','No','Yes') ;
+    if strcmp(button,'Yes')
+        %ici ajouter un while au cas ou cela ne marche pas
+        [ofilename,opathname]=uiputfile({'*.mat'},'Work to save');
+        filename = fct_makecleanfilename(opathname,ofilename);
+        save(filename,'nbfilms','delta','rmat','gmat','bmat','DOSE');
+    end
+    
+elseif flag == 1
+    [ifilename,ipathname]=uigetfile({'*.mat'},'Work to import');
+    if ~strcmp(class(ifilename),'double')
+        filename = fct_makecleanfilename(ipathname,ifilename);
+        load (filename);
+    else
+        flag = 0;
+    end
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%At this point, we have all the informaiton
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+usefitD = 0;
+usefiltimage = 0 ;
+usefilttau = 0;
+
+% button = questdlg('Do you want to filter the image?','Shortcut','Yes','No','Yes') ;
+button = 'No';
+if strcmp(button,'Yes')
+    usefiltimage  = 1;
+end
+% button = questdlg('Do you want to use dose-fitted coefficients?','Shortcut','Yes','No','Yes') ;
+button = 'No';
+if strcmp(button,'Yes')
+    usefitD  = 1;
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if flag ~=0
+    %Here the value are so far unint16
+    for j = 1:nbfilms
+        rmat{j} = double(rmat{j});
+        gmat{j} = double(gmat{j});
+        bmat{j} = double(bmat{j});
+    end
+    [n1,m1] = size(rmat{1}); [n2,m2] = size(rmat{2});
+    if n1 == n2
+        dir = 2;
+    elseif m1 == m2
+        dir = 1;
+    else
+        dir = 0;
+    end
+    %      button = questdlg('Do you want to correct signal or optical density?','Correction','Signal','OD','Signal') ;
+    %Here I think it is better to work with signal because it is bounded by
+    %[0,65535]
+    button = 'OD';
+    if strcmp(button,'OD')
+        ISOD = 1;
+        DOSE = sort(DOSE(:));
+    else
+        ISOD = 0;
+        DOSE = flipud(sort(DOSE(:)));
+    end
+    if ISOD
+        for j=1:nbfilms
+            rmat{j} = log10(65535./rmat{j}); gmat{j} = log10(65535./gmat{j});  bmat{j} = log10(65535./bmat{j});
+        end
+    end
+    
+    %getting ascending order (since order of OD and signal are reversed)
+    mux(1:nbfilms) = 0;
+    for j = 1:nbfilms
+        mux(j) = mean(mean(rmat{j}));
+    end
+    [dmb,jorder] = sort(mux);
+    clear mux dmb;
+    for j = 1:nbfilms
+        rtmp{j} = rmat{jorder(j)}; gtmp{j} = gmat{jorder(j)}; btmp{j} = bmat{jorder(j)};
+    end
+    rmat = rtmp; gmat = gtmp; bmat = btmp;
+    clear rtmp gtmp btmp;
+    
+    %prepare filter to remove noize
+    clear str;
+    s = (1:2:25);
+    for i=1:length(s)
+        str{i} = sprintf('%.5f',s(i)*delta*10);
+    end
+    if usefiltimage
+        [i,ok] = listdlg('Name','Filter width (mm)','ListString',str);
+    else
+        ok = 1; i = [];
+    end
+    if ok
+        if length(i)==0
+            i = 1;
+        end
+        kconv = s(i);
+        filterimage = kconv*delta;
+        Fim = ones(kconv,kconv)/sum(sum(ones(kconv,kconv)));
+    else
+        proceed = 0;
+    end
+    
+    if usefiltimage
+        for j=1:nbfilms
+            r = conv2(rmat{j},Fim,'valid'); g = conv2(gmat{j},Fim,'valid'); b = conv2(bmat{j},Fim,'valid');
+            rmat{j} = r;  gmat{j} = g;  bmat{j} = b;
+        end
+    end
+    x = []; y = []; z = []; d = [];
+    for j=1:nbfilms
+        r = rmat{j}; g = gmat{j}; b = bmat{j};
+        [m,n] = size(r);
+        r = reshape(r,m*n,1); g = reshape(g,m*n,1); b = reshape(b,m*n,1);
+        wr = mean(r)/std(r); wg = mean(g)/std(g); wb = mean(b)/std(b);
+        s = (wr*r + wg*g + wb*b)/(wr+wg+wb);
+        if 0
+            [s,kreduced] = fct_depopulate2(s);
+            r = r(kreduced); g = g(kreduced); b = b(kreduced);
+        end
+        [s,k] = sort(s);
+        x = cat(1,x,r(k)); y = cat(1,y,g(k)); z = cat(1,z,b(k));
+        d = cat(1,d,ones(length(r),1)*DOSE(j));
+    end
+    
+    N = length(x);
+    P = 1/(2*N);
+    %P(x) = 0.5+0.5*erf(x/sqrt(2))
+    maxtau = erfinv(1-2*P)*sqrt(2)
+    %mean and std
+    mux = []; muy = []; muz = [];
+    sx = []; sy = []; sz = [];
+    for j=1:nbfilms
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%
+        k = find(d==DOSE(j));
+        xx = x(k); yy = y(k); zz = z(k);
+        muxtmp = mean(xx); muytmp = mean(yy); muztmp = mean(zz);
+        sxtmp = std(xx); sytmp = std(yy); sztmp = std(zz);
+        if 1
+            %remove aberrant values
+            i = find(abs(xx-muxtmp)/sxtmp<maxtau); muxtmp = mean(xx(i));sxtmp = std(xx(i));
+            i = find(abs(yy-muytmp)/sytmp<maxtau); muytmp = mean(yy(i));sytmp = std(yy(i));
+            i = find(abs(zz-muztmp)/sztmp<maxtau); muztmp = mean(zz(i));sztmp = std(zz(i));
+        end
+        mux = cat(1,mux,muxtmp); muy = cat(1,muy,muytmp); muz = cat(1,muz,muztmp);
+        sx = cat(1,sx,sxtmp); sy = cat(1,sy,sytmp); sz = cat(1,sz,sztmp);
+    end
+    %fit sOD vs DOSE
+    psx = polyfit(DOSE,sx,2); psy = polyfit(DOSE,sy,2); psz = polyfit(DOSE,sz,2);
+    sxhat = polyval(psx,DOSE); syhat = polyval(psy,DOSE); szhat = polyval(psz,DOSE);
+    
+    %solving coefficients
+    
+    Ax = zeros(nbfilms,1); Bx = zeros(nbfilms,1); Cx = zeros(nbfilms,1);
+    Ay = zeros(nbfilms,1); By = zeros(nbfilms,1); Cy = zeros(nbfilms,1);
+    Az = zeros(nbfilms,1); Bz = zeros(nbfilms,1); Cz = zeros(nbfilms,1);
+    
+    Ax_approx = zeros(nbfilms,1); Bx_approx = zeros(nbfilms,1); Cx_approx = zeros(nbfilms,1);
+    Ay_approx = zeros(nbfilms,1); By_approx = zeros(nbfilms,1); Cy_approx = zeros(nbfilms,1);
+    Az_approx = zeros(nbfilms,1); Bz_approx = zeros(nbfilms,1); Cz_approx = zeros(nbfilms,1);   
+    
+    for i=1:nbfilms
+        k = find(d==DOSE(i));
+        xx = x(k); yy = y(k); zz = z(k);
+        if 1
+            asol = fct_solve_abc_simple(xx);
+            Ax(i) = asol(1); Bx(i) = asol(2); Cx(i) = asol(3);
+            asol = fct_solve_abc_simple(yy);
+            Ay(i) = asol(1); By(i) = asol(2); Cy(i) = asol(3);
+            asol = fct_solve_abc_simple(zz);
+            Az(i) = asol(1); Bz(i) = asol(2); Cz(i) = asol(3);
+        else
+            asol = fct_solve_abc_approx(xx);
+            Ax(i) = asol(1); Bx(i) = asol(2); Cx(i) = asol(3);
+            asol = fct_solve_abc_approx(yy);
+            Ay(i) = asol(1); By(i) = asol(2); Cy(i) = asol(3);
+            asol = fct_solve_abc_approx(zz);
+            Az(i) = asol(1); Bz(i) = asol(2); Cz(i) = asol(3);    
+        end
+    end
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    
+ 
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    
+    %Fitting coefficients versus dose
+    NA = min(4,length(DOSE)-1);
+    NB = min(2,length(DOSE)-1);
+    NC = min(1,length(DOSE)-1);
+    
+    pAx = polyfit(DOSE,Ax,NA); pAy = polyfit(DOSE,Ay,NA); pAz = polyfit(DOSE,Az,NA);
+    pBx = polyfit(DOSE,Bx,NB); pBy = polyfit(DOSE,By,NB); pBz = polyfit(DOSE,Bz,NB);
+    pCx = polyfit(DOSE,Cx,NC); pCy = polyfit(DOSE,Cy,NC); pCz = polyfit(DOSE,Cz,NC);
+    Axhat = polyval(pAx,DOSE); Ayhat = polyval(pAy,DOSE); Azhat = polyval(pAz,DOSE);
+    Bxhat = polyval(pBx,DOSE); Byhat = polyval(pBy,DOSE); Bzhat = polyval(pBz,DOSE);
+    Cxhat = polyval(pCx,DOSE); Cyhat = polyval(pCy,DOSE); Czhat = polyval(pCz,DOSE);
+    
+    figure;
+    subplot(1,3,1); hold on;
+    plot(DOSE,Ax,'.r',DOSE,Ay,'.g',DOSE,Az,'.b');
+    plot(DOSE,Axhat,'-r',DOSE,Ayhat,'-g',DOSE,Azhat,'-b');
+    hold off;
+    ylabel('Coefficient A'); xlabel('Dose (cGy)');
+    subplot(1,3,2);hold on;
+    plot(DOSE,Bx,'.r',DOSE,By,'.g',DOSE,Bz,'.b');
+    plot(DOSE,Bxhat,'-r',DOSE,Byhat,'-g',DOSE,Bzhat,'-b');
+    ylabel('Coefficient B'); xlabel('Dose (cGy)');
+    hold off;
+    subplot(1,3,3);hold on;
+    plot(DOSE,Cx,'.r',DOSE,Cy,'.g',DOSE,Cz,'.b');
+    plot(DOSE,Cxhat,'-r',DOSE,Cyhat,'-g',DOSE,Czhat,'-b');
+    ylabel('Coefficient C'); xlabel('Dose (cGy)');
+    hold off;
+    
+    if 0%I have enough confidence now that the tau maps are strongly correlated
+        %first individual taus for each channel
+        TAU1 = []; TAU2 = []; TAU3 = [];
+        for j=1:nbfilms
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%
+            k = find(d==DOSE(j));
+            [m,n] = size(rmat{j});
+            xx = reshape(rmat{j},m*n,1); yy = reshape(gmat{j},m*n,1); zz = reshape(bmat{j},m*n,1);
+            
+            %Here we define a function that minimize eta with respect to tau. The
+            %derivative with tau yields a cubic function 0 = c0 + c1*t  + c2*t^2 + c3*t^3
+            if usefitD %with estimated coefficient values
+                c0x = 2*(Axhat(j)-xx).*Bxhat(j); c1x = 4*(Axhat(j)-xx).*Cxhat(j)+2*Bxhat(j).^2; c2x = 6*Bxhat(j).*Cxhat(j); c3x = 4*Cxhat(j).^2;
+                c0y = 2*(Ayhat(j)-yy).*Byhat(j); c1y = 4*(Ayhat(j)-yy).*Cyhat(j)+2*Byhat(j).^2; c2y = 6*Byhat(j).*Cyhat(j); c3y = 4*Cyhat(j).^2;
+                c0z = 2*(Azhat(j)-zz).*Bzhat(j); c1z = 4*(Azhat(j)-zz).*Czhat(j)+2*Bzhat(j).^2; c2z = 6*Bzhat(j).*Czhat(j); c3z = 4*Czhat(j).^2;
+            else
+                c0x = 2*(Ax(j)-xx).*Bx(j); c1x = 4*(Ax(j)-xx).*Cx(j)+2*Bx(j).^2; c2x = 6*Bx(j).*Cx(j); c3x = 4*Cx(j).^2;
+                c0y = 2*(Ay(j)-yy).*By(j); c1y = 4*(Ay(j)-yy).*Cy(j)+2*By(j).^2; c2y = 6*By(j).*Cy(j); c3y = 4*Cy(j).^2;
+                c0z = 2*(Az(j)-zz).*Bz(j); c1z = 4*(Az(j)-zz).*Cz(j)+2*Bz(j).^2; c2z = 6*Bz(j).*Cz(j); c3z = 4*Cz(j).^2;
+            end
+            %this solution is the roots for which eta is minimal
+            if 0
+                %                         T1 = [fct_real_cubic_root1(c3x,c2x,c1x,c0x) fct_real_cubic_root2(c3x,c2x,c1x,c0x) fct_real_cubic_root3(c3x,c2x,c1x,c0x)];
+                %                         T2 = [fct_real_cubic_root1(c3y,c2y,c1y,c0y) fct_real_cubic_root2(c3y,c2y,c1y,c0y) fct_real_cubic_root3(c3y,c2y,c1y,c0y)];
+                %                         T3 = [fct_real_cubic_root1(c3z,c2z,c1z,c0z) fct_real_cubic_root2(c3z,c2z,c1z,c0z) fct_real_cubic_root3(c3z,c2z,c1z,c0z)];
+                T1 = fct_real_cubic_roots(c3x,c2x,c1x,c0x);
+                T2 = fct_real_cubic_roots(c3y,c2y,c1y,c0y);
+                T3 = fct_real_cubic_roots(c3z,c2z,c1z,c0z);
+                T1 = max(-maxtau,min(maxtau,T1));
+                T2 = max(-maxtau,min(maxtau,T2));
+                T3 = max(-maxtau,min(maxtau,T3));
+                if usefitD
+                    E1 = (Axhat(j) + Bxhat(j)*T1 + Cxhat(j)*T1.^2 - [xx xx xx]).^2;
+                    E2 = (Ayhat(j) + Byhat(j)*T2 + Cyhat(j)*T2.^2 - [yy yy yy]).^2;
+                    E3 = (Azhat(j) + Bzhat(j)*T3 + Czhat(j)*T3.^2 - [zz zz zz]).^2;
+                else
+                    E1 = (Ax(j) + Bx(j)*T1 + Cx(j)*T1.^2 - [xx xx xx]).^2;
+                    E2 = (Ay(j) + By(j)*T2 + Cy(j)*T2.^2 - [yy yy yy]).^2;
+                    E3 = (Az(j) + Bz(j)*T3 + Cz(j)*T3.^2 - [zz zz zz]).^2;
+                end
+                [m1,n1] = size(E1);
+                [dummy,jmin] = min(E1,[],2);%here the index is i,j
+                t = reshape(T1',m1*n1,1); %here the index is k=n1*(i-1)+j
+                kmin = n1*((1:m1)'-1)+jmin; %therefore this eq gives the indTeces of minima
+                taumat1{j} = reshape(t(kmin),m,n);
+                [dummy,jmin] = min(E2,[],2);%here the index is i,j
+                t = reshape(T2',m*n*3,1); %here the index is k=n1*(i-1)+j
+                kmin = n1*((1:m1)'-1)+jmin; %therefore this eq gives the indTeces of minima
+                taumat2{j} = reshape(t(kmin),m,n);
+                [dummy,jmin] = min(E3,[],2);%here the index is i,j
+                t = reshape(T3',m*n*3,1); %here the index is k=n1*(i-1)+j
+                kmin = n1*((1:m1)'-1)+jmin; %therefore this eq gives the indTeces of minima
+                taumat3{j} = reshape(t(kmin),m,n);
+            else %this solution is for tau closest to 0
+                taumat1{j} = reshape(fct_minrealcubicroot(c3x,c2x,c1x,c0x),m,n);
+                taumat2{j} = reshape(fct_minrealcubicroot(c3y,c2y,c1y,c0y),m,n);
+                taumat3{j} = reshape(fct_minrealcubicroot(c3z,c2z,c1z,c0z),m,n);
+                taumat1{j} = min(maxtau,max(-maxtau,taumat1{j}));
+                taumat2{j} = min(maxtau,max(-maxtau,taumat2{j}));
+                taumat3{j} = min(maxtau,max(-maxtau,taumat3{j}));
+            end
+            TAU1 = cat(dir,TAU1, taumat1{j});
+            TAU2 = cat(dir,TAU2, taumat2{j});
+            TAU3 = cat(dir,TAU3, taumat3{j});
+        end
+        
+        figure;
+        subplot(1,3,1);
+        imagesc(TAU1);     title('Tau red ');
+        set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+        subplot(1,3,2);
+        imagesc(TAU2);     title('Tau green ');
+        set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+        subplot(1,3,3);
+        imagesc(TAU3);      title('Tau blue ');
+        set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+        colormap('gray');
+        impixelinfo;
+        
+
+        %check for correlations
+        [m,n] = size(TAU1);
+        corr_rg = corrcoef(reshape(TAU1,m*n,1),reshape(TAU2,m*n,1));
+        corr_rb = corrcoef(reshape(TAU1,m*n,1),reshape(TAU3,m*n,1));
+        corr_gb = corrcoef(reshape(TAU2,m*n,1),reshape(TAU3,m*n,1));
+        correlations = [corr_rg(1,2) corr_rb(1,2) corr_gb(1,2)];
+        
+        
+        t1 = reshape(TAU1,m*n,1);
+        t2 = reshape(TAU2,m*n,1);
+        t3 = reshape(TAU3,m*n,1);
+        k1 = intersect(find(t1>-maxtau),find(t1<maxtau));
+        k2 = intersect(find(t2>-maxtau),find(t2<maxtau));
+        k3 = intersect(find(t3>-maxtau),find(t3<maxtau));
+        figure;
+        hist(t1(k1),100); title(['Tau red channel std = ' sprintf('%.2f',std( t1))]);
+        figure;
+        hist(t2(k2),100); title(['Tau green channel std = ' sprintf('%.2f',std( t2))]);
+        figure;
+        hist(t3(k3),100); title(['Tau blue channel std = ' sprintf('%.2f',std( t3))]);
+        
+    end
+    %determine the weights of each channel to find tau according to the
+    %model. The weights is highest for the channels which fit best with
+    %model
+    
+    if 0 %dose-dependant weight
+        %     pAx = polyfit(DOSE,Ax,NA); pAy = polyfit(DOSE,Ay,NA); pAz = polyfit(DOSE,Az,NA);
+        qAx = fliplr(0:(length(pAx)-1)).*pAx; qAx = qAx(1:(length(qAx)-1));
+        qAy = fliplr(0:(length(pAy)-1)).*pAy; qAy = qAy(1:(length(qAy)-1));
+        qAz = fliplr(0:(length(pAz)-1)).*pAz; qAz = qAz(1:(length(qAz)-1));
+        delAxhat = polyval(qAx,DOSE); delAyhat = polyval(qAy,DOSE); delAzhat = polyval(qAz,DOSE);
+        tmp = [delAxhat(:)./max(10,DOSE) delAyhat(:)./max(10,DOSE) delAzhat(:)./max(10,DOSE)];
+    elseif 1 %thickness-dependent weight
+        %is this the best we can do?
+        tmp = [abs(Bx) abs(By) abs(Bz)];
+        
+    elseif 0 %weight dependent on dose and thickness
+        qAx = fliplr(0:(length(pAx)-1)).*pAx; qAx = qAx(1:(length(qAx)-1));
+        qAy = fliplr(0:(length(pAy)-1)).*pAy; qAy = qAy(1:(length(qAy)-1));
+        qAz = fliplr(0:(length(pAz)-1)).*pAz; qAz = qAz(1:(length(qAz)-1));
+        delAxhat = polyval(qAx,DOSE); delAyhat = polyval(qAy,DOSE); delAzhat = polyval(qAz,DOSE);
+        tmp1 = [delAxhat(:)./max(10,DOSE) delAyhat(:)./max(10,DOSE) delAzhat(:)./max(10,DOSE)];
+        tmp2 = [(abs(Bx+2*Cx(:)*maxtau)+abs(Bx-2*Cx(:)*maxtau))/2./maxtau ...
+            (abs(By+2*Cy(:)*maxtau)+abs(By-2*Cy(:)*maxtau))/2./maxtau ...
+            (abs(Bz+2*Cz(:)*maxtau)+abs(Bz-2*Cz(:)*maxtau))/2./maxtau];
+        tmp = sqrt(tmp1.^2+tmp2.^2);
+    else %empirical ans constant
+        tmp = [DOSE(:).*0+ 0.25 DOSE(:).*0+ 0.25 DOSE(:).*0+ 0.5];
+    end
+    weights = tmp./[sum(tmp,2) sum(tmp,2) sum(tmp,2) ];
+    
+    %hack: not use red channel
+    if 0
+        weights(:,1) = 0;
+        weights = weights./[sum(weights,2) sum(weights,2) sum(weights,2)];
+    end
+    
+    pwr = polyfit(DOSE,weights(:,1),min(2,length(weights)-1));
+    pwb = polyfit(DOSE,weights(:,3),min(2,length(weights)-1));
+    pwg = [zeros(1,length(pwr)-1) 1]-pwr-pwb;
+    figure; hold on;
+    plot(DOSE,weights(:,1),'.r',DOSE,polyval(pwr,DOSE),'r');
+    plot(DOSE,weights(:,2),'.g',DOSE,polyval(pwg,DOSE),'g');
+    plot(DOSE,weights(:,3),'.b',DOSE,polyval(pwb,DOSE),'b');
+    ylabel('Weights'); xlabel('Dose (cGy)');
+    hold off;
+    
+    
+    TAU = []; D = []; R = []; G = []; B = [];
+    r = []; g = []; b = []; t = []; d = [];
+    for j=1:nbfilms
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%
+        [m,n] = size(rmat{j});
+        xx = reshape(rmat{j},m*n,1); yy = reshape(gmat{j},m*n,1); zz = reshape(bmat{j},m*n,1);
+        %Here we define a function that minimize eta with respect to tau. The
+        %derivative with tau yields a cubic function 0 = c0 + c1*t  + c2*t^2 + c3*t^3
+        if usefitD %with estimated coefficient values
+            c0x = 2*(Axhat(j)-xx).*Bxhat(j); c1x = 4*(Axhat(j)-xx).*Cxhat(j)+2*Bxhat(j).^2; c2x = 6*Bxhat(j).*Cxhat(j); c3x = 4*Cxhat(j).^2;
+            c0y = 2*(Ayhat(j)-yy).*Byhat(j); c1y = 4*(Ayhat(j)-yy).*Cyhat(j)+2*Byhat(j).^2; c2y = 6*Byhat(j).*Cyhat(j); c3y = 4*Cyhat(j).^2;
+            c0z = 2*(Azhat(j)-zz).*Bzhat(j); c1z = 4*(Azhat(j)-zz).*Czhat(j)+2*Bzhat(j).^2; c2z = 6*Bzhat(j).*Czhat(j); c3z = 4*Czhat(j).^2;
+        else
+            c0x = 2*(Ax(j)-xx).*Bx(j); c1x = 4*(Ax(j)-xx).*Cx(j)+2*Bx(j).^2; c2x = 6*Bx(j).*Cx(j); c3x = 4*Cx(j).^2;
+            c0y = 2*(Ay(j)-yy).*By(j); c1y = 4*(Ay(j)-yy).*Cy(j)+2*By(j).^2; c2y = 6*By(j).*Cy(j); c3y = 4*Cy(j).^2;
+            c0z = 2*(Az(j)-zz).*Bz(j); c1z = 4*(Az(j)-zz).*Cz(j)+2*Bz(j).^2; c2z = 6*Bz(j).*Cz(j); c3z = 4*Cz(j).^2;
+        end
+        C0 = weights(j,1)* c0x + weights(j,2)* c0y + weights(j,3)* c0z ;
+        C1 = weights(j,1)* c1x + weights(j,2)* c1y + weights(j,3)* c1z ;
+        C2 = weights(j,1)* c2x + weights(j,2)* c2y + weights(j,3)* c2z ;
+        C3 = weights(j,1)* c3x + weights(j,2)* c3y + weights(j,3)* c3z ;
+        %this solution is the roots for which tau is minimal
+        if 0
+            T = [fct_real_cubic_root1(C3,C2,C1,C0) fct_real_cubic_root2(C3,C2,C1,C0) fct_real_cubic_root3(C3,C2,C1,C0)];
+            %             T = max(-maxtau,min(maxtau,T));
+            if usefitD
+                ETA = weights(j,1)*(Axhat(j) + Bxhat(j)*T + Cxhat(j)*T.^2 - [xx xx xx]).^2;
+                ETA = ETA + weights(j,2)*(Ayhat(j) + Byhat(j)*T + Cyhat(j)*T.^2 - [yy yy yy]).^2;
+                ETA = ETA + weights(j,3)*(Azhat(j) + Bzhat(j)*T + Czhat(j)*T.^2 - [zz zz zz]).^2;
+            else
+                ETA = weights(j,1)*(Ax(j) + Bx(j)*T + Cx(j)*T.^2 - [xx xx xx]).^2;
+                ETA = ETA + weights(j,2)*(Ay(j) + By(j)*T + Cy(j)*T.^2 - [yy yy yy]).^2;
+                ETA = ETA + weights(j,3)*(Az(j) + Bz(j)*T + Cz(j)*T.^2 - [zz zz zz]).^2;
+            end
+            [absdeleta,t] = min(maxtau,max(-maxtau,fct_FindValuesMinRowColMatrices(abs(ETA),T,2)));
+            taumat{j} = reshape(t,m,n);
+        else %this solution is for tau closest to 0
+            %             taumat{j} = min(maxtau,max(-maxtau,reshape(fct_minrealcubicroot(C3,C2,C1,C0),m,n)));
+            taumat{j} = reshape(fct_minrealcubicroot(C3,C2,C1,C0),m,n);
+        end
+        TAU = cat(dir,TAU, taumat{j});
+        D = cat(dir,D,taumat{j}*0+DOSE(j));
+        R = cat(dir,R,rmat{j});
+        G = cat(dir,G,gmat{j});
+        B = cat(dir,B,bmat{j});
+        r = cat(1,r,xx); g = cat(1,g,yy); b = cat(1,b,zz);
+        d = cat(1,d,xx*0+DOSE(j));
+        t = cat(1,t,reshape(taumat{j},m*n,1));
+    end
+    
+    k  = intersect(find(t>-maxtau),find(t<maxtau));
+    figure;
+    hist(t(k),100); title(['Tau multichannel std = ' sprintf('%.2f',std(t))]);
+    
+    figure;
+    subplot(1,3,2);
+    imagesc(min(max(TAU,-maxtau),maxtau)); title('Tau (multichannel)');
+    set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+    %             colormap('bone');
+    subplot(1,3,3);
+    imagesc(D); title('Dose (true)');
+    set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+    colormap('gray');
+    subplot(1,3,1);
+    clear I;
+    if ISOD
+        I(:,:,1)=uint16(10.^(-R)*65535);I(:,:,2)=uint16(10.^(-G)*65535);I(:,:,3)=uint16(10.^(-B)*65535);
+    else
+        I(:,:,1)=uint16(R); I(:,:,2)=uint16(G); I(:,:,3)=uint16(B);
+    end
+    imagesc(I); title('Image');
+    set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+    impixelinfo;
+    
+    
+    %Here I know OD, D and TAU
+    %let's fit!
+    %     R = double(I(:,:,1)); G = double(I(:,:,2)); B = double(I(:,:,3));
+    %     if ISOD
+    %         R = log10(65535./R); G = log10(65535./G);  B = log10(65535./B);
+    %     end
+    %     [m,n] = size(R);
+    %
+    %     r = reshape(R,m*n,1);
+    %     g = reshape(G,m*n,1);
+    %     b = reshape(B,m*n,1);
+    %     d = reshape(D,m*n,1);
+    %     t = reshape(TAU,m*n,1);
+    
+    %First let's compare using the estimated coefficients
+    rapprox = []; gapprox = []; bapprox = [];
+    for j=1:nbfilms
+        k = find(d==DOSE(j));
+        if usefitD
+            rapprox = cat(1,rapprox,Axhat(j)+Bxhat(j).*t(k)+Cxhat(j).*t(k).^2);
+            gapprox = cat(1,gapprox,Ayhat(j)+Byhat(j).*t(k)+Cyhat(j).*t(k).^2);
+            bapprox = cat(1,bapprox,Azhat(j)+Bzhat(j).*t(k)+Czhat(j).*t(k).^2);
+        else
+            rapprox = cat(1,rapprox,Ax(j)+Bx(j).*t(k)+Cx(j).*t(k).^2);
+            gapprox = cat(1,gapprox,Ay(j)+By(j).*t(k)+Cy(j).*t(k).^2);
+            bapprox = cat(1,bapprox,Az(j)+Bz(j).*t(k)+Cz(j).*t(k).^2);
+        end
+    end
+    
+    if 0
+        
+        figure;
+        subplot(1,3,1); plot(r,rapprox,'.r',[min(r) max(r)],[min(r) max(r)],'--k'); title('Rough fit red'); xlabel('Red signal');
+        subplot(1,3,2); plot(g,gapprox,'.g',[min(g) max(g)],[min(g) max(g)],'--k'); title('Rough fit green'); xlabel('Green signal');
+        subplot(1,3,3); plot(b,bapprox,'.b',[min(b) max(b)],[min(b) max(b)],'--k'); title('Rough fit blue'); xlabel('Blue signal');
+        
+        figure;
+        subplot(1,3,1); plot(t,r,'.r',t,rapprox,'.k'); title('Rough fit red'); xlabel('Thickness perturbation');
+        subplot(1,3,2); plot(t,g,'.g',t,gapprox,'.k'); title('Rough fit green'); xlabel('Thickness perturbation');
+        subplot(1,3,3); plot(t,b,'.b',t,bapprox,'.k'); title('Rough fit blue'); xlabel('Thickness perturbation');
+        
+    end
+    sr = sqrt(sum((r-rapprox).^2)/length(r));
+    sg = sqrt(sum((g-gapprox).^2)/length(g));
+    sb = sqrt(sum((b-bapprox).^2)/length(b));
+    
+    %evaluate values for which the distribution of t can be assumed
+    %symmetric and kept reasonable
+    k1 = intersect(find(t<maxtau),find(t>-maxtau));
+    %also eliminate the values for with the evaluation of tau was poor
+%     k2 = intersect(intersect(find(abs(r-rapprox)<3.*sr),find(abs(g-gapprox)<3.*sg)),find(abs(b-bapprox)<3.*sb));
+    k2 = find(abs(r-rapprox)<3.*sr);
+    %evaluate only nonabberrant values for the fit
+    k = intersect(k1,k2);
+    r = r(k); g = g(k); b = b(k); d = d(k); t = t(k);
+    
+    if 0
+        %Here we need to depopulate the data according to tau to get a fait fit
+        %The density function is p(t) = 1/sqrt(2*pi)*exp(-t.^2/2)
+        %We can set p(0)=p0. Therefore the probability for a given value to be
+        %in the fit is given by 1-p0*exp(-t.^2/2)
+        p = 1/sqrt(2*pi)*exp(-t.^2/2);
+        %         p0 = 1/sqrt(2*pi)*exp(-maxtau.^2/2);
+        %         p0 = 1/sqrt(2*pi)*exp(-2.^2/2);
+        p0 = 1/sqrt(2*pi)*exp(-2.^2/2);
+        q = min(1,p0./p);
+        figure;
+        plot(t,q.*p,'.');
+        
+        %the variable keep is negative if the data is rejected
+        keep = q-rand(length(q),1);
+        k = find(keep>=0);
+        V = [d(k).^0 d(k).^1 d(k).^2 d(k).^3 d(k).^4]; %a(D)
+        V = cat(2,V,[d(k).^0.*t(k) d(k).^1.*t(k) d(k).^2.*t(k) d(k).^3.*t(k) ]);%b(D)tau
+        V = cat(2,V,[d(k).^0.*t(k).^2 d(k).^1.*t(k).^2 d(k).^2.*t(k).^2 ]);%c(D)tau^2
+        
+        pr = V\r(k);%inv(V'*V)*V'*r
+        pg = V\g(k);
+        pb = V\b(k);
+        
+    elseif 1 %here instead we do a weighted fit
+        [k] = fct_indexreducerand(d,round(length(d)/5));
+        
+        V = [d(k).^0 d(k).^1 d(k).^2 d(k).^3 d(k).^4]; %a(D)
+        V = cat(2,V,[d(k).^0.*t(k) d(k).^1.*t(k) d(k).^2.*t(k) d(k).^3.*t(k) ]);%b(D)tau
+        V = cat(2,V,[d(k).^0.*t(k).^2 d(k).^1.*t(k).^2 d(k).^2.*t(k).^2 ]);%c(D)tau^2
+        
+        p = 1/sqrt(2*pi)*exp(-t(k).^2/2);
+        p0 = 1/sqrt(2*pi)*exp(-3.^2/2);
+        q = 1./max(p/p0,1);
+        w = sqrt(q(:));
+        w = w/sum(w);
+        W = [w w w w w];
+        W = cat(2,W,[w w w w]);
+        W = cat(2,W,[w w w]);
+        pr = (W.*V)\(r(k).*w);
+        pg = (W.*V)\(g(k).*w);
+        pb = (W.*V)\(b(k).*w);
+%         k = 1:length(d);
+    else
+        V = [d.^0 d.^1 d.^2 d.^3 d.^4]; %a(D)
+        V = cat(2,V,[d.^0.*t d.^1.*t d.^2.*t d.^3.*t ]);%b(D)tau
+        V = cat(2,V,[d.^0.*t.^2 d.^1.*t.^2 d.^2.*t.^2 ]);%c(D)tau^2
+        
+        pr = V\r;%inv(V'*V)*V'*r
+        pg = V\g;
+        pb = V\b;
+        k = 1:length(d);
+    end
+    
+    rhat = V*pr;
+    ghat = V*pg;
+    bhat = V*pb;
+    
+    figure;
+    subplot(1,3,1); plot(r(k),rhat,'.r',[min(r) max(r)],[min(r) max(r)],'--k'); title('Better fit red'); xlabel('Red signal');
+    subplot(1,3,2); plot(g(k),ghat,'.g',[min(g) max(g)],[min(g) max(g)],'--k'); title('Better fit green'); xlabel('Green signal');
+    subplot(1,3,3); plot(b(k),bhat,'.b',[min(b) max(b)],[min(b) max(b)],'--k'); title('Better fit blue'); xlabel('Blue signal');
+    
+    figure;
+    subplot(1,3,1); plot(t(k),r(k),'.r',t(k),rhat,'.k'); title('Better fit red'); xlabel('Thickness perturbation');
+    subplot(1,3,2); plot(t(k),g(k),'.g',t(k),ghat,'.k'); title('Better fit green'); xlabel('Thickness perturbation');
+    subplot(1,3,3); plot(t(k),b(k),'.b',t(k),bhat,'.k'); title('Better fit blue'); xlabel('Thickness perturbation');
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %Now some functions
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    TAURANGE = [-maxtau maxtau];
+    DOSERANGE = DOSE;
+    tmin = min(TAURANGE);
+    tmax = max(TAURANGE);
+    dmin = min(DOSERANGE);
+    dmax = max(DOSERANGE);
+    
+    d0 = @(d) min(max(d,dmin),dmax);
+    
+    ar = @(d) pr(1) + pr(2)*d+ pr(3)*d.^2 + pr(4)*d.^3 + pr(5)*d.^4 ;
+    br = @(d) pr(6) + pr(7)*d+ pr(8)*d.^2 + pr(9)*d.^3 ;
+    cr = @(d) pr(10) + pr(11)*d+ pr(12)*d.^2 ;
+    
+    ag = @(d) pg(1) + pg(2)*d+ pg(3)*d.^2 + pg(4)*d.^3 + pg(5)*d.^4 ;
+    bg = @(d) pg(6) + pg(7)*d+ pg(8)*d.^2 + pg(9)*d.^3 ;
+    cg = @(d) pg(10) + pg(11)*d+ pg(12)*d.^2 ;
+    
+    ab = @(d) pb(1) + pb(2)*d+ pb(3)*d.^2 + pb(4)*d.^3 + pb(5)*d.^4 ;
+    bb = @(d) pb(6) + pb(7)*d+ pb(8)*d.^2 + pb(9)*d.^3 ;
+    cb = @(d) pb(10) + pb(11)*d+ pb(12)*d.^2 ;
+    
+    wr = @(d) polyval(pwr,d0(d)); wg = @(d) polyval(pwg,d0(d)); wb = @(d) polyval(pwb,d0(d));
+    
+    del_ar = @(d) pr(2)+ 2*pr(3)*d + 3*pr(4)*d.^2 + 4*pr(5)*d.^3 ;
+    del_br = @(d) pr(7)+ 2*pr(8)*d + 3*pr(9)*d.^2 ;
+    del_cr = @(d) pr(11)+2*pr(12)*d ;
+    
+    del_ag = @(d) pg(2)+ 2*pg(3)*d + 3*pg(4)*d.^2 + 4*pg(5)*d.^3 ;
+    del_bg = @(d) pg(7)+ 2*pg(8)*d + 3*pg(9)*d.^2 ;
+    del_cg = @(d) pg(11)+2*pg(12)*d ;
+    
+    del_ab = @(d) pb(2)+ 2*pb(3)*d + 3*pb(4)*d.^2 + 4*pb(5)*d.^3 ;
+    del_bb = @(d) pb(7)+ 2*pb(8)*d + 3*pb(9)*d.^2 ;
+    del_cb = @(d) pb(11)+2*pb(12)*d ;
+    
+    er = @(d) del_ar(d0(d)).*(d-d0(d)) + ar(d0(d)) ;
+    fr = @(d) del_br(d0(d)).*(d-d0(d)) + br(d0(d)) ;
+    gr = @(d) del_cr(d0(d)).*(d-d0(d)) + cr(d0(d)) ;
+    
+    eg = @(d) del_ag(d0(d)).*(d-d0(d)) + ag(d0(d)) ;
+    fg = @(d) del_bg(d0(d)).*(d-d0(d)) + bg(d0(d)) ;
+    gg = @(d) del_cg(d0(d)).*(d-d0(d)) + cg(d0(d)) ;
+    
+    eb = @(d) del_ab(d0(d)).*(d-d0(d)) + ab(d0(d)) ;
+    fb = @(d) del_bb(d0(d)).*(d-d0(d)) + bb(d0(d)) ;
+    gb = @(d) del_cb(d0(d)).*(d-d0(d)) + cb(d0(d)) ;
+    
+    c0r =  @(d,r) 2*(er(d)-r).*fr(d); c1r = @(d,r) 2*(2*(er(d)-r).*gr(d)+fr(d).^2); c2r = @(d) 6*fr(d).*gr(d); c3r = @(d) 4*gr(d).^2;
+    c0g =  @(d,g) 2*(eg(d)-g).*fg(d); c1g = @(d,g) 2*(2*(eg(d)-g).*gg(d)+fg(d).^2); c2g = @(d) 6*fg(d).*gg(d); c3g = @(d) 4*gg(d).^2;
+    c0b =  @(d,b) 2*(eb(d)-b).*fb(d); c1b = @(d,b) 2*(2*(eb(d)-b).*gb(d)+fb(d).^2); c2b = @(d) 6*fb(d).*gb(d); c3b = @(d) 4*gb(d).^2;
+    %Here we define a function that minimize eta with respect to tau. The
+    %derivative with tau yields a cubic function 0 = c0 + c1*t  + c2*t^2 + c3*t^3
+    c0 =  @(d,r,g,b) wr(d).*c0r(d,r) + wg(d).*c0g(d,g) + wb(d).*c0b(d,b);
+    c1 =  @(d,r,g,b) wr(d).*c1r(d,r) + wg(d).*c1g(d,g) + wb(d).*c1b(d,b);
+    c2 =  @(d) wr(d).*c2r(d) + wg(d).*c2g(d) + wb(d).*c2b(d);
+    c3 =  @(d) wr(d).*c3r(d) + wg(d).*c3g(d) + wb(d).*c3b(d);
+    
+    tvalid = @(d) min([abs(fr(d)./max(1e-8,abs(gr(d)))/2) abs(fg(d)./max(1e-8,abs(gg(d)))/2) abs(fb(d)./max(1e-8,abs(gb(d)))/2)],[],2);
+    t0 = @(d,t) min(max(t,-tvalid(d)),tvalid(d));
+    %     t0 = @(d,t) min(max(t,tmin),tmax);
+    
+%     ODr = @(d,t) er(d) + fr(d).*t0(d,t)+ gr(d).*t0(d,t).^2;
+%     ODg = @(d,t) eg(d) + fg(d).*t0(d,t)+ gg(d).*t0(d,t).^2;
+%     ODb = @(d,t) eb(d) + fb(d).*t0(d,t)+ gb(d).*t0(d,t).^2;
+
+    ODr = @(d,t) er(d) + fr(d).*t+ gr(d).*t.^2;
+    ODg = @(d,t) eg(d) + fg(d).*t+ gg(d).*t.^2;
+    ODb = @(d,t) eb(d) + fb(d).*t+ gb(d).*t.^2;
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    figure; hold on;
+    ezsurf(ODr,[-100,100+dmax],1.5*[-maxtau,maxtau]);
+    ezsurf(ODg,[-100,100+dmax],1.5*[-maxtau,maxtau]);
+    ezsurf(ODb,[-100,100+dmax],1.5*[-maxtau,maxtau]);
+    hold off;
+    
+    %Here we know sx, sy and sz
+    sD = min([sx./del_ar(DOSE) sy./del_ag(DOSE) sz./del_ab(DOSE) ],[],2)./DOSE;
+    k = find(DOSE~=0);
+    sD = max(sD(k));
+    maxfracdose = 3*sD;
+    
+    %     filename = 'tempfile.mat';
+    %     save(filename,'pr','pg','pb','pwr','pwg','pwb','ISOD','DOSE');
+    
+    [ofilename,opathname]=uiputfile({'*.3ch'},['Save mutlichannel correction method']);
+    if ~strcmp(class(ofilename),'double')
+        fname = fct_makecleanfilename(opathname,ofilename);
+        %new method
+        err = fct_WriteMultichCorr(fname,ISOD,[min(DOSE) max(DOSE)],[-maxtau maxtau],pr,pg,pb,pwr,pwg,pwb);
+        if err
+            error('File not written');
+        end
+    else
+        error('Wrong file');
+    end
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %TEST
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    test = 1;
+    while test
+        button = questdlg('Do you want to do a self-consistency test?','Test','Yes','No','Yes') ;
+        if strcmp(button,'Yes')
+            test = 1;
+        else
+            test = 0;
+        end
+        if test
+            
+            figure;
+            imagesc(I); title('Image');
+            set(gca,'DataAspectRatio',[1 1 1]);
+            impixelinfo;
+            
+            [dmb,rect] = imcrop;
+            
+            Rcrop = imcrop(R,rect); Gcrop  = imcrop(G,rect); Bcrop  = imcrop(B,rect);
+            Dcrop  = imcrop(D,rect); TAUcrop  = imcrop(TAU,rect);
+            
+            clear Icrop;
+            if ISOD
+                Icrop (:,:,1)=uint16(10.^(-Rcrop )*65535);Icrop (:,:,2)=uint16(10.^(-Gcrop )*65535);Icrop (:,:,3)=uint16(10.^(-Bcrop )*65535);
+            else
+                Icrop (:,:,1)=uint16(Rcrop ); Icrop (:,:,2)=uint16(Gcrop ); Icrop (:,:,3)=uint16(Bcrop );
+            end
+            DOSERANGE = [max(DOSE) min(DOSE)];
+            TAURANGE = [-maxtau maxtau];
+            deltafracdose = 0.002;
+            
+            %this for is to test if you want to validate the extrapolation algorithm
+            %         for extrap=0:1
+            for extrap=1
+                
+                %                 save('tempfile.mat','Icrop','pr','pg','pb','pwr','pwg','pwb','ISOD','DOSERANGE','TAURANGE','deltafracdose','maxfracdose','extrap');
+                
+                [Icorr,Dsol,Tsol] = fct_MultiCorrectImage2(Icrop ,pr,pg,pb,pwr,pwg,pwb,ISOD,DOSERANGE,TAURANGE,deltafracdose,maxfracdose,extrap);
+                
+                Rcorr = double(Icorr(:,:,1)); Gcorr = double(Icorr(:,:,2)); Bcorr = double(Icorr(:,:,3));
+                if ISOD
+                    Rcorr = log10(65535./Rcorr); Gcorr = log10(65535./Gcorr);  Bcorr = log10(65535./Bcorr);
+                end
+                
+                [m,n] = size(Dsol);
+                figure;
+                plot(reshape(Dcrop ,m*n,1),reshape(Dsol,m*n,1),'.c', [min(d) max(d)],[min(d) max(d)],'--k' );
+                figure;
+                plot(reshape(TAUcrop ,m*n,1),reshape(Tsol,m*n,1),'.m',[min(t) max(t)],[min(t) max(t)],'--k' );
+                
+                %this puts the images on the same scale. it's not kosher but it
+                %works
+                Dmin = min(min(min(Dcrop )),min(min(Dsol)));
+                Dmax = max(max(max(Dcrop )),max(max(Dsol)));
+                Tmin = min(min(min(TAUcrop )),min(min(Tsol)));
+                Tmax = max(max(max(TAUcrop )),max(max(Tsol)));
+                Dcrop (1,1) = Dmin; Dcrop (end,end) = Dmax; Dsol(1,1) = Dmin; Dsol(end,end) = Dmax;
+                TAUcrop (1,1) = Tmin; TAUcrop (end,end) = Tmax; Tsol(1,1) = Tmin; Tsol(end,end) = Tmax;
+                
+                figure;
+                subplot(2,2,1); imagesc(Dcrop ); title('Dose');
+                set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+                subplot(2,2,2); imagesc(TAUcrop ); title('Tau');
+                set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+                subplot(2,2,3); imagesc(Dsol); title('Dose estimation');
+                set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+                subplot(2,2,4); imagesc(Tsol); title('Tau estimation');
+                set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+                impixelinfo;
+                
+                %this puts the images on the same scale. it's not kosher but it
+                %works
+                Rmin = min(min(min(Rcrop )),min(min(Rcorr))); Rmax = max(max(max(Rcrop )),max(max(Rcorr)));
+                Gmin = min(min(min(Gcrop )),min(min(Gcorr))); Gmax = max(max(max(Gcrop )),max(max(Gcorr)));
+                Bmin = min(min(min(Bcrop )),min(min(Bcorr))); Bmax = max(max(max(Bcrop )),max(max(Bcorr)));
+                Rcrop (1,1) = Rmin; Rcrop (end,end) = Rmax; Rcorr(1,1) = Rmin; Rcorr(end,end) = Rmax;
+                Gcrop (1,1) = Gmin; Gcrop (end,end) = Gmax; Gcorr(1,1) = Gmin; Gcorr(end,end) = Gmax;
+                Bcrop (1,1) = Bmin; Bcrop (end,end) = Bmax; Bcorr(1,1) = Bmin; Bcorr(end,end) = Bmax;
+                
+                figure;
+                subplot(2,3,1); imagesc(Rcrop  );  title('Red');
+                set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+                subplot(2,3,2); imagesc(Gcrop  );  title('Green');
+                set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+                subplot(2,3,3); imagesc(Bcrop  );  title('Blue');
+                set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+                impixelinfo;
+                subplot(2,3,4); imagesc(Rcorr);  title('Red corrected');
+                set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+                subplot(2,3,5); imagesc(Gcorr);  title('Green corrected');
+                set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+                subplot(2,3,6); imagesc(Bcorr);  title('Blue corrected');
+                set(gca,'DataAspectRatio',[1 1 1]); colorbar('vert');
+                impixelinfo;
+            end
+        end
+    end
+end

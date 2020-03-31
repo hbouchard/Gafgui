@@ -1,0 +1,178 @@
+function handles = fct_MultichCorrect3(handles);
+% 
+% clc;
+% clear all;
+% close all;
+% 
+% fct_AddGafguiFctPath();
+% handles = fct_initGafgui();
+% close;
+
+%%%%%%%%%%%%%%
+% save(filename,'pr','pg','pb','pwr','pwg','pwb','filterimage','ISOD','DOSE')
+% load ('tempfile.mat');
+
+[ofilename,opathname]=uigetfile({'*.3ch'},['Load mutlichannel correction method']);
+if ~strcmp(class(ofilename),'double')
+    fname = fct_makecleanfilename(opathname,ofilename);
+    %new method
+    [err,ISOD,DOSERANGE,TAURANGE,pr,pg,pb,pwr,pwg,pwb] = fct_ReadMultichCorr(fname);
+    if err
+        error('File not read');
+    end
+else
+    error('Wrong file');
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%Open an image to correct
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+[ifilename,ipathname]=uigetfile({'*.tif'},'Image to correct');
+if (~strcmp(class(ifilename),'double'))
+    flag = 2;
+else
+    flag = 0;
+end
+ACTUALDIR=cd;
+% details see function fct_colortochannel
+Filename = fct_makecleanfilename(ipathname,ifilename)
+info=imfinfo(Filename);
+FORMAT=info.Format;
+BITS=info.BitsPerSample(1);
+NC=size(info.BitsPerSample,2);
+DPIX=info.XResolution;
+DPIY=info.YResolution;
+COLORTYPE=info.PhotometricInterpretation;
+
+if (strcmp(FORMAT,'tif')&&(BITS==16)&&(NC==3)&&(strcmp(COLORTYPE,'RGB'))&&(DPIX==DPIY))
+    delta = 2.54/DPIX;
+    IMAGE=imread(Filename);
+    IMAGE(:,:,1) = (IMAGE(:,:,1)); IMAGE(:,:,2) = (IMAGE(:,:,2));  IMAGE(:,:,3) = (IMAGE(:,:,3));
+else
+    error('Wrong file format.');
+end
+
+%%%%%%%%%%%%%%%%%%
+%prepare filter to reduce noize
+usefiltimage = 0;
+if usefiltimage
+        clear str;
+    s = (1:2:25);
+    for i=1:length(s)
+        str{i} = sprintf('%.5f',s(i)*delta*10);
+    end
+    if usefiltimage
+        [i,ok] = listdlg('Name','Filter width (mm)','ListString',str);
+    else
+        ok = 1; i = [];
+    end
+    if ok
+        if length(i)==0
+            i = 1;
+        end
+        kconv = s(i);
+        filterimage = kconv*delta;
+        Fim = ones(kconv,kconv)/sum(sum(ones(kconv,kconv)));
+    else
+        proceed = 0;
+    end
+    if usefiltimage
+        tIMAGE(:,:,1) = conv2(double(IMAGE(:,:,1)),Fim,'valid'); 
+        tIMAGE(:,:,2) = conv2(double(IMAGE(:,:,2)),Fim,'valid'); 
+        tIMAGE(:,:,3) = conv2(double(IMAGE(:,:,3)),Fim,'valid');
+        clear IMAGE;
+        IMAGE(:,:,1) = uint16(tIMAGE(:,:,1)); IMAGE(:,:,2) = uint16(tIMAGE(:,:,2));  IMAGE(:,:,3) = uint16(tIMAGE(:,:,3));
+    end
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+[nlines, ncols] = size(IMAGE(:,:,1));
+x = (-(ncols-1)/2 :(ncols-1)/2 )*delta;
+y = (-(nlines-1)/2:(nlines-1)/2)*delta;
+clear nlines ncols;
+
+hfig = figure('Name','Main image');
+himage = imagesc(x,y,IMAGE);
+haxes = get(hfig,'CurrentAxes');
+set(haxes,'DataAspectRatio',[1 1 1]);
+axis('on');
+set(hfig,'Units','pixels');
+
+%%%%%%%%%%%
+%crop image
+%%%%%%%%%%%
+figure(hfig);
+[IMG,rectoff] = imcrop;
+x1 = round(rectoff(1)/delta);  x2 = round((rectoff(1)+rectoff(3))/delta);
+y1 = round(rectoff(2)/delta);  y2 = round((rectoff(2)+rectoff(4))/delta);
+clear rectoff;
+clear IMAGE;
+close(hfig);
+
+%Here parameters can be changed
+[Icorr,D,T] = fct_MultiCorrectImage2(IMG,pr,pg,pb,pwr,pwg,pwb,ISOD,DOSERANGE,TAURANGE,0.005,0.05,1);
+
+R = double(IMG(:,:,1)); G = double(IMG(:,:,2)); B = double(IMG(:,:,3));
+Rcorr = double(Icorr(:,:,1)); Gcorr = double(Icorr(:,:,2)); Bcorr = double(Icorr(:,:,3));
+if ISOD
+    R = log10(65535./R); G = log10(65535./G);  B = log10(65535./B);
+    Rcorr = log10(65535./Rcorr); Gcorr = log10(65535./Gcorr);  Bcorr = log10(65535./Bcorr);
+end
+
+figure;
+subplot(1,3,1);
+imagesc(IMG); title('Image');
+set(gca,'DataAspectRatio',[1 1 1]);
+subplot(1,3,2);
+imagesc(T); title('Tau');
+set(gca,'DataAspectRatio',[1 1 1]);
+subplot(1,3,3);
+imagesc(D); title('Dose index');
+set(gca,'DataAspectRatio',[1 1 1]);
+colormap('gray');
+impixelinfo;
+
+figure;
+subplot(1,2,1);
+imagesc(T); title('Tau');
+set(gca,'DataAspectRatio',[1 1 1]);
+subplot(1,2,2);
+imagesc((G-Gcorr)./Gcorr); title('Image difference (green)');
+set(gca,'DataAspectRatio',[1 1 1]);
+colormap('gray');
+impixelinfo;
+
+
+if 0
+    if ISOD
+        Icorr(:,:,1)=uint16(10.^(-Rcorr)*65535);Icorr(:,:,2)=uint16(10.^(-Gcorr)*65535);Icorr(:,:,3)=uint16(10.^(-Bcorr)*65535);
+    else
+        Icorr(:,:,1)=uint16(Rcorr); Icorr(:,:,2)=uint16(Gcorr); Icorr(:,:,3)=uint16(Bcorr);
+    end
+    figure
+    imagesc(Icorr);
+    set(gca,'DataAspectRatio',[1 1 1]);  
+
+    defaultname = sprintf('%s_raw.tif',ifilename(1:(length(ifilename)-4)));
+    [ofilename,opathname] = uiputfile({'*.tif'},'.tif image to export without correction',defaultname);
+    filename = [opathname ofilename];
+    imwrite(IMG,filename,'tif','Resolution',2.54/delta);
+
+    defaultname = sprintf('%s_multi.tif',ifilename(1:(length(ifilename)-4)));
+    [ofilename,opathname] = uiputfile({'*.tif'},'.tif image to export with correction',defaultname);
+    filename = [opathname ofilename];
+    imwrite(Icorr,filename,'tif','Resolution',2.54/delta);
+else %this puts dose
+    defaultname = sprintf('%s_raw.tif',ifilename(1:(length(ifilename)-4)));
+    [ofilename,opathname] = uiputfile({'*.tif'},'.tif image to export without correction',defaultname);
+    filename = [opathname ofilename];
+    imwrite(IMG,filename,'tif','Resolution',2.54/delta);
+    
+    Rcorr = max(0,D/max(DOSERANGE)+0.2);
+    Icorr(:,:,1)=uint16(10.^(-Rcorr)*65535); Icorr(:,:,2) = Icorr(:,:,1); Icorr(:,:,3) = Icorr(:,:,1);
+    defaultname = sprintf('%s_multi.tif',ifilename(1:(length(ifilename)-4)));
+    [ofilename,opathname] = uiputfile({'*.tif'},'.tif image to export with correction',defaultname);
+    filename = [opathname ofilename];
+    imwrite(Icorr,filename,'tif','Resolution',2.54/delta);
+end
+

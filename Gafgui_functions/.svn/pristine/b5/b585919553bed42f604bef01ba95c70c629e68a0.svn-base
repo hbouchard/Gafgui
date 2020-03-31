@@ -1,0 +1,46 @@
+function asol = fct_solve_abcd(theta)
+
+% clc;
+% clear all;
+% close all;
+% 
+% fct_AddGafguiFctPath();
+% 
+% load tempfile.mat;
+% 
+% theta = THETA(:,1);
+
+n = length(theta);
+mu = mean(theta);
+sigma = sqrt(n/(n-1)*mean((theta-mu).^2));
+%reduced variable
+z = (theta-mu)/sigma;
+%unbiased skewness
+gamma = ( n^2/(n-2)/(n-1) *mean(z.^3))^(1/3);
+%unbiased kurtosis
+kappa = ((n+1)*n^2/(n-1)/(n-2)/(n-3)*mean(z.^4) - 3*((n-1)^2/(n-2)/(n-3)-1))^(1/4);
+
+% bmin = (max(0,-(kappa^4-3)/12*sigma^4))^(1/4);
+% bmax = ((1-(kappa^4-3)/12)*sigma^4)^(1/4);
+
+asol = fct_solve_abc(theta);
+
+p_approx = [asol(2) asol(3) 0];
+
+a = @(c) mu -c;
+d = @(b) sigma*sqrt(1-sqrt((kappa^4-3)/12+b.^4/sigma^4));
+
+f1 = @(p)(p(1).^2 + 2*p(2).^2 + d(p(1))^2 - sigma^2)/sigma^2;
+% f1 = @(p)(p(1).^2 +2*p(2).^2 + p(3)^3 - sigma^2)/sigma^2;
+f2 = @(p) (6*p(1).^2.*p(2) + 8*p(2).^3 - gamma^3*sigma^3)/sigma^3;
+f3 = @(p) ((15 -kappa^4)*sigma^4 - 12*p(1)-24*sigma^2*p(3)^2 + 12*p(3)^4 )/sigma^4;
+
+F = @(p) [ f1(p);
+%            f3(p);
+           f2(p);];
+       
+% options.MaxFunEvals = 5000;
+% options.MaxIter = 1000;
+psol = fsolve(F,p_approx,options);
+
+asol = [a(psol(2)) psol(1) psol(2) d(psol(1))]; 

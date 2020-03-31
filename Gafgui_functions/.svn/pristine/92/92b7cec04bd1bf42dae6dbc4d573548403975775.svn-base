@@ -1,0 +1,42 @@
+function asol = fct_solve_abc_simple(theta)
+
+n = length(theta);
+mu = mean(theta);
+sigma = sqrt(n/(n-1)*mean((theta-mu).^2));
+%reduced variable
+z = (theta-mu)/sigma;
+%unbiased skewness
+gamma3 = ( n^2/(n-2)/(n-1) *mean(z.^3));
+
+% r = fct_real_cubic_roots(4,0,-6*sigma^2,gamma3*sigma^3);
+%here r(i) is 0 if not real.
+% if sign(gamma3)>0
+%     k = find(r>0);
+%     r = r(k);
+%     if length(r)==0
+%         c = 0;
+%     else
+%         c = min(r);
+%     end
+% else
+%     k = find(r<0);
+%     r = r(k);
+%     if length(r)==0
+%         c = 0;
+%     else
+%         c = max(r);
+%     end
+% end
+c = fct_minrealcubicroot(4,0,-6*sigma^2,gamma3*sigma^3);
+
+if 2*c^2>sigma^2
+    c = 0;
+end
+
+a = mu - c;
+b = sqrt(sigma^2-2*c^2);
+
+asol = [a b c];
+
+
+

@@ -1,0 +1,25 @@
+function asol = fct_solve_abc_approx(theta)
+
+%prepare data
+x = mean(theta);
+sx = std(theta);
+k = find(abs(theta-x)/sx<5);
+theta = theta(k);
+%abberrant values are removed.
+
+n = length(theta);
+mu = mean(theta);
+sigma = sqrt(n/(n-1)*mean((theta-mu).^2));
+%reduced variable
+z = (theta-mu)/sigma;
+%unbiased skewness
+gamma3 = ( n^2/(n-2)/(n-1) *mean(z.^3));
+% %unbiased kurtosis
+% kappa4 = ((n+1)*n^2/(n-1)/(n-2)/(n-3)*mean(z.^4) - 3*((n-1)^2/(n-2)/(n-3)-1));
+
+asol = mu;
+bsol = sigma;
+csol = gamma3*sigma/6;
+
+
+asol = [asol bsol csol];

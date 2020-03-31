@@ -1,0 +1,185 @@
+function [Icorr,D,T] = fct_MultiCorrectImage2(I,pr,pg,pb,pwr,pwg,pwb,ISOD,DOSERANGE,TAURANGE,deltafracdose,maxfracdose,extrap)
+
+% clear all;
+% clear functions;
+% close all;
+% clc;
+% fct_AddGafguiFctPath();
+% handles = fct_initGafgui();
+% close;
+% load ('tempfile.mat');
+
+R = double(I(:,:,1)); G = double(I(:,:,2)); B = double(I(:,:,3));
+if ISOD
+    R = log10(65535./R); G = log10(65535./G);  B = log10(65535./B);
+end
+
+%Start function
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Now some functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+tmin = min(TAURANGE);
+tmax = max(TAURANGE);
+dmin = min(DOSERANGE);
+dmax = max(DOSERANGE);
+
+d0 = @(d) min(max(d,dmin),dmax);
+
+ar = @(d) pr(1) + pr(2)*d+ pr(3)*d.^2 + pr(4)*d.^3 + pr(5)*d.^4 ;
+br = @(d) pr(6) + pr(7)*d+ pr(8)*d.^2 + pr(9)*d.^3 ;
+cr = @(d) pr(10) + pr(11)*d+ pr(12)*d.^2 ;
+
+ag = @(d) pg(1) + pg(2)*d+ pg(3)*d.^2 + pg(4)*d.^3 + pg(5)*d.^4 ;
+bg = @(d) pg(6) + pg(7)*d+ pg(8)*d.^2 + pg(9)*d.^3 ;
+cg = @(d) pg(10) + pg(11)*d+ pg(12)*d.^2 ;
+
+ab = @(d) pb(1) + pb(2)*d+ pb(3)*d.^2 + pb(4)*d.^3 + pb(5)*d.^4 ;
+bb = @(d) pb(6) + pb(7)*d+ pb(8)*d.^2 + pb(9)*d.^3 ;
+cb = @(d) pb(10) + pb(11)*d+ pb(12)*d.^2 ;
+
+wr = @(d) polyval(pwr,d0(d)); wg = @(d) polyval(pwg,d0(d)); wb = @(d) polyval(pwb,d0(d));
+
+if extrap
+    
+    del_ar = @(d) pr(2)+ 2*pr(3)*d + 3*pr(4)*d.^2 + 4*pr(5)*d.^3 ;
+    del_br = @(d) pr(7)+ 2*pr(8)*d + 3*pr(9)*d.^2 ;
+    del_cr = @(d) pr(11)+2*pr(12)*d ;
+    
+    del_ag = @(d) pg(2)+ 2*pg(3)*d + 3*pg(4)*d.^2 + 4*pg(5)*d.^3 ;
+    del_bg = @(d) pg(7)+ 2*pg(8)*d + 3*pg(9)*d.^2 ;
+    del_cg = @(d) pg(11)+2*pg(12)*d ;
+    
+    del_ab = @(d) pb(2)+ 2*pb(3)*d + 3*pb(4)*d.^2 + 4*pb(5)*d.^3 ;
+    del_bb = @(d) pb(7)+ 2*pb(8)*d + 3*pb(9)*d.^2 ;
+    del_cb = @(d) pb(11)+2*pb(12)*d ;
+    
+    er = @(d) del_ar(d0(d)).*(d-d0(d)) + ar(d0(d)) ;
+    fr = @(d) del_br(d0(d)).*(d-d0(d)) + br(d0(d)) ;
+    gr = @(d) del_cr(d0(d)).*(d-d0(d)) + cr(d0(d)) ;
+    
+    eg = @(d) del_ag(d0(d)).*(d-d0(d)) + ag(d0(d)) ;
+    fg = @(d) del_bg(d0(d)).*(d-d0(d)) + bg(d0(d)) ;
+    gg = @(d) del_cg(d0(d)).*(d-d0(d)) + cg(d0(d)) ;
+    
+    eb = @(d) del_ab(d0(d)).*(d-d0(d)) + ab(d0(d)) ;
+    fb = @(d) del_bb(d0(d)).*(d-d0(d)) + bb(d0(d)) ;
+    gb = @(d) del_cb(d0(d)).*(d-d0(d)) + cb(d0(d)) ;
+    
+    c0r =  @(d,r) 2*(er(d)-r).*fr(d); c1r = @(d,r) 2*(2*(er(d)-r).*gr(d)+fr(d).^2); c2r = @(d) 6*fr(d).*gr(d); c3r = @(d) 4*gr(d).^2;
+    c0g =  @(d,g) 2*(eg(d)-g).*fg(d); c1g = @(d,g) 2*(2*(eg(d)-g).*gg(d)+fg(d).^2); c2g = @(d) 6*fg(d).*gg(d); c3g = @(d) 4*gg(d).^2;
+    c0b =  @(d,b) 2*(eb(d)-b).*fb(d); c1b = @(d,b) 2*(2*(eb(d)-b).*gb(d)+fb(d).^2); c2b = @(d) 6*fb(d).*gb(d); c3b = @(d) 4*gb(d).^2;
+    %Here we define a function that minimize eta with respect to tau. The
+    %derivative with tau yields a cubic function 0 = c0 + c1*t  + c2*t^2 + c3*t^3
+    c0 =  @(d,r,g,b) wr(d).*c0r(d,r) + wg(d).*c0g(d,g) + wb(d).*c0b(d,b);
+    c1 =  @(d,r,g,b) wr(d).*c1r(d,r) + wg(d).*c1g(d,g) + wb(d).*c1b(d,b);
+    c2 =  @(d) wr(d).*c2r(d) + wg(d).*c2g(d) + wb(d).*c2b(d);
+    c3 =  @(d) wr(d).*c3r(d) + wg(d).*c3g(d) + wb(d).*c3b(d);
+    
+    tvalid = @(d) min([abs(fr(d)./max(1e-8,abs(gr(d)))/2) abs(fg(d)./max(1e-8,abs(gg(d)))/2) abs(fb(d)./max(1e-8,abs(gb(d)))/2)],[],2);
+    t0 = @(d,t) min(max(t,-tvalid(d)),tvalid(d));
+%     t0 = @(d,t) min(max(t,tmin),tmax);
+    
+    
+%     ODr = @(d,t) er(d) + fr(d).*t0(d,t)+ gr(d).*t0(d,t).^2;
+%     ODg = @(d,t) eg(d) + fg(d).*t0(d,t)+ gg(d).*t0(d,t).^2;
+%     ODb = @(d,t) eb(d) + fb(d).*t0(d,t)+ gb(d).*t0(d,t).^2;
+
+    ODr = @(d,t) er(d) + fr(d).*t+ gr(d).*t.^2;
+    ODg = @(d,t) eg(d) + fg(d).*t+ gg(d).*t.^2;
+    ODb = @(d,t) eb(d) + fb(d).*t+ gb(d).*t.^2;
+    
+    if 1
+        topt0 = @(d,r,g,b) min(max(fct_minrealcubicroot(c3(d),c2(d),c1(d,r,g,b),c0(d,r,g,b)),-tvalid(d)),tvalid(d));
+        topt1 = @(d,r,g,b) min(max(fct_real_cubic_root1(c3(d),c2(d),c1(d,r,g,b),c0(d,r,g,b)),-tvalid(d)),tvalid(d));
+        topt2 = @(d,r,g,b) min(max(fct_real_cubic_root2(c3(d),c2(d),c1(d,r,g,b),c0(d,r,g,b)),-tvalid(d)),tvalid(d));
+        topt3 = @(d,r,g,b) min(max(fct_real_cubic_root3(c3(d),c2(d),c1(d,r,g,b),c0(d,r,g,b)),-tvalid(d)),tvalid(d));
+    else
+        topt0 = @(d,r,g,b) fct_minrealcubicroot(c3(d),c2(d),c1(d,r,g,b),c0(d,r,g,b));
+        topt1 = @(d,r,g,b) fct_real_cubic_root1(c3(d),c2(d),c1(d,r,g,b),c0(d,r,g,b));
+        topt2 = @(d,r,g,b) fct_real_cubic_root2(c3(d),c2(d),c1(d,r,g,b),c0(d,r,g,b));
+        topt3 = @(d,r,g,b) fct_real_cubic_root3(c3(d),c2(d),c1(d,r,g,b),c0(d,r,g,b));
+    end
+    
+else
+    t0 = @(t) min(max(t,tmin),tmax);
+    
+    c0r =  @(d,r) 2*(ar(d0(d))-r).*br(d0(d));
+    c1r = @(d,r) 2*(2*(ar(d0(d))-r).*cr(d0(d))+br(d0(d)).^2);
+    c2r = @(d) 6*br(d0(d)).*cr(d0(d));
+    c3r = @(d) 4*cr(d0(d)).^2;
+    c0g =  @(d,g) 2*(ag(d0(d))-g).*bg(d0(d));
+    c1g = @(d,g) 2*(2*(ag(d0(d))-g).*cg(d0(d))+bg(d0(d)).^2);
+    c2g = @(d) 6*bg(d0(d)).*cg(d0(d));
+    c3g = @(d) 4*cg(d0(d)).^2;
+    c0b =  @(d,b) 2*(ab(d0(d))-b).*bb(d0(d));
+    c1b = @(d,b) 2*(2*(ab(d0(d))-b).*cb(d0(d))+bb(d0(d)).^2);
+    c2b = @(d) 6*bb(d0(d)).*cb(d0(d));
+    c3b = @(d) 4*cb(d0(d)).^2;
+    %Here we define a function that minimize eta with respect to tau. The
+    %derivative with tau yields a cubic function 0 = c0 + c1*t  + c2*t^2 + c3*t^3
+    c0 =  @(d,r,g,b) wr(d).*c0r(d,r) + wg(d).*c0g(d,g) + wb(d).*c0b(d,b);
+    c1 =  @(d,r,g,b) wr(d).*c1r(d,r) + wg(d).*c1g(d,g) + wb(d).*c1b(d,b);
+    c2 =  @(d) wr(d).*c2r(d) + wg(d).*c2g(d) + wb(d).*c2b(d);
+    c3 =  @(d) wr(d).*c3r(d) + wg(d).*c3g(d) + wb(d).*c3b(d);
+    
+    ODr = @(d,t) ar(d0(d)) + br(d0(d)).*t0(t)+ cr(d0(d)).*t0(t).^2;
+    ODg = @(d,t) ag(d0(d)) + bg(d0(d)).*t0(t)+ cg(d0(d)).*t0(t).^2;
+    ODb = @(d,t) ab(d0(d)) + bb(d0(d)).*t0(t)+ cb(d0(d)).*t0(t).^2;
+    
+    topt0 = @(d,r,g,b) min(max(fct_minrealcubicroot(c3(d),c2(d),c1(d,r,g,b),c0(d,r,g,b)),tmin),tmax);
+    topt1 = @(d,r,g,b) min(max(fct_real_cubic_root1(c3(d),c2(d),c1(d,r,g,b),c0(d,r,g,b)),tmin),tmax);
+    topt2 = @(d,r,g,b) min(max(fct_real_cubic_root2(c3(d),c2(d),c1(d,r,g,b),c0(d,r,g,b)),tmin),tmax);
+    topt3 = @(d,r,g,b) min(max(fct_real_cubic_root3(c3(d),c2(d),c1(d,r,g,b),c0(d,r,g,b)),tmin),tmax);
+end
+
+eta = @(d,t,r,g,b) wr(d).*(ODr(d,t)-r).^2 + wg(d).*(ODg(d,t)-g).^2 + wb(d).*(ODb(d,t)-b).^2;
+
+[m,n] = size(R);
+
+r = reshape(R,m*n,1);
+g = reshape(G,m*n,1);
+b = reshape(B,m*n,1);
+if min(DOSERANGE)==max(DOSERANGE)
+    dapprox = ones(m*n,1)*max(DOSERANGE);
+else
+    dapprox = interp1(ag([min(DOSERANGE):1:max(DOSERANGE)]'),[min(DOSERANGE):1:max(DOSERANGE)]',g,'linear','extrap');
+end
+[d,t,flag_corr] = fct_GetSolutionTauDose(r,g,b,dapprox,deltafracdose,maxfracdose,DOSERANGE,TAURANGE,topt0,topt1,topt2,topt3,eta);
+
+T = reshape(t,m,n);
+D = reshape(d,m,n);
+
+figure;
+hist(t,100); title(['Tau 3 channels std = ' sprintf('%.2f',std(t))]);
+figure;
+hist(d,100); title(['Dose']);
+
+if extrap
+    rcorr = er(d);
+    gcorr = eg(d);
+    bcorr = eb(d);
+else
+    rcorr = (1-flag_corr(:)).*r + flag_corr(:).*ar(d);
+    gcorr = (1-flag_corr(:)).*g + flag_corr(:).*ag(d);
+    bcorr = (1-flag_corr(:)).*b + flag_corr(:).*ab(d);
+end
+Rcorr = reshape(rcorr,m,n);
+Gcorr = reshape(gcorr,m,n);
+Bcorr = reshape(bcorr,m,n);
+
+% di = [min(DOSERANGE):0.01:max(DOSERANGE)]';
+% ri = ar(di);
+% gi = ag(di);
+% bi = ab(di);
+% Rcorr = reshape(interp1(di,ri,d,'linear','extrap'),m,n);
+% Gcorr = reshape(interp1(di,gi,d,'linear','extrap'),m,n);
+% Bcorr = reshape(interp1(di,bi,d,'linear','extrap'),m,n);
+
+if ISOD
+    Icorr(:,:,1)=uint16(10.^(-Rcorr)*65535);Icorr(:,:,2)=uint16(10.^(-Gcorr)*65535);Icorr(:,:,3)=uint16(10.^(-Bcorr)*65535);
+else
+    Icorr(:,:,1)=uint16(Rcorr); Icorr(:,:,2)=uint16(Gcorr); Icorr(:,:,3)=uint16(Bcorr);
+end
+
+

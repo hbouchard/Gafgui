@@ -1,0 +1,19 @@
+function TAU = fct_EstimateTau(R,G,B,Ax,Bx,Cx,Ay,By,Cy,Az,Bz,Cz,weights)
+
+
+[m,n] = size(R);
+xx = reshape(R,m*n,1); yy = reshape(G,m*n,1); zz = reshape(B,m*n,1);
+
+%Here we define a function that minimize eta with respect to tau. The
+%derivative with tau yields a cubic function 0 = c0 + c1*t  + c2*t^2 + c3*t^3
+
+c0x = 2*(Ax-xx).*Bx; c1x = 4*(Ax-xx).*Cx+2*Bx.^2; c2x = 6*Bx.*Cx; c3x = 4*Cx.^2;
+c0y = 2*(Ay-yy).*By; c1y = 4*(Ay-yy).*Cy+2*By.^2; c2y = 6*By.*Cy; c3y = 4*Cy.^2;
+c0z = 2*(Az-zz).*Bz; c1z = 4*(Az-zz).*Cz+2*Bz.^2; c2z = 6*Bz.*Cz; c3z = 4*Cz.^2;
+
+C0 = weights(1)* c0x + weights(2)* c0y + weights(3)* c0z ;
+C1 = weights(1)* c1x + weights(2)* c1y + weights(3)* c1z ;
+C2 = weights(1)* c2x + weights(2)* c2y + weights(3)* c2z ;
+C3 = weights(1)* c3x + weights(2)* c3y + weights(3)* c3z ;
+%this solution is the roots for which tau is minimal
+TAU = reshape(fct_minrealcubicroot(C3,C2,C1,C0),m,n);

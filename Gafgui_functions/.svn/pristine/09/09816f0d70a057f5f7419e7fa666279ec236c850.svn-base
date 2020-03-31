@@ -1,0 +1,346 @@
+function handles = fct_CreateHomogCorrectionMatrix(handles);
+
+
+% clc;
+% clear all;
+% close all;
+%
+% fct_AddGafguiFctPath();
+% handles = fct_initGafgui();
+
+
+button = questdlg('Do you want to start from the beginning?','Shortcut','Yes','No','Yes') ;
+handles.H = fct_updatedisplay(handles);
+figure(handles.H);
+
+
+if strcmp(button,'No')
+    flag = 1;
+else
+    [ifilename,ipathname]=uigetfile({'*.tif'},'Choose the correction bands scan');
+    handles.H = fct_updatedisplay(handles);
+    figure(handles.H);
+    if ~strcmp(class(ifilename),'double')
+        flag = 2;
+    else
+        flag = 0;
+    end
+end
+
+maxorder = 8;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%Get data
+if flag == 2
+    [Im,res] = fct_read_tif16RGB_image(fct_makecleanfilename(ipathname,ifilename),'All');
+    figure('NumberTitle','off','Name','Correction bands');
+    h = fct_display(Im,res);
+    nbbands  = inputdlg({'Enter the number of bands to analyze (please include 1 region without film)'},'Number of bands',1);
+    nbbands  = str2double(nbbands);
+    orders(1:nbbands) = 0;
+    %     button = questdlg('Which channel do you want to analyze?','Channel','Red','Green','Blue','Red');
+    %     channel = fct_colortochannel(button)
+    %I = double(Im(:,:,channel));
+    %     button = questdlg('What selection type?','ROI','Free','Rectangular','Free');
+    str{1} = 'Free';
+    str{2}='Rectangular';
+    str{3}='Zoom';
+    str{4} = 'Point';
+    
+    [type,ok] = listdlg('Name','ROI','ListString',str);
+    if ok==1
+        button= str{type};
+    end
+    if strcmp(button,'Rectangular')
+        width_rect  = inputdlg({'Region width in cm:','Region height in cm:'},'Rectangular region',1,{'1','1'});
+        iwidth = [str2double(width_rect(1)) str2double(width_rect(2))];
+    else
+        iwidth = [];
+    end
+    for i = 1:nbbands
+        [x,y] = fct_getmeanprofilefromselect(Im,res,'x',button,1:3,iwidth);
+        xr{i} = x(:,1);  yr{i} = y(:,1);
+        xg{i} = x(:,2);  yg{i} = y(:,2);
+        xb{i} = x(:,3);  yb{i} = y(:,3);
+    end
+    button = questdlg('Do you want to save this step?','Shortcut','Yes','No','Yes') ;
+    if strcmp(button,'Yes')
+        %ici ajouter un while au cas ou cela ne marche pas
+        [ofilename,opathname]=uiputfile({'*.mat'},'Work to save');
+        filename = fct_makecleanfilename(opathname,ofilename);
+        save(filename,'xr','yr','xg','yg','xb','yb','res','nbbands');
+    end
+    close (h);
+elseif flag == 1
+    [ifilename,ipathname]=uigetfile({'*.mat'},'Work to import');
+    if ~strcmp(class(ifilename),'double')
+        filename = fct_makecleanfilename(ipathname,ifilename);
+        load (filename);
+    else
+        flag = 0;
+    end
+end
+
+Xr = []; Yr = []; Zr = [];
+Xg = []; Yg = []; Zg = [];
+Xb = []; Yb = []; Zb = [];
+for i = 1:nbbands
+    xtmp = xr{i};  ytmp = yr{i};
+    k0 = round(length(xtmp)/2); k1 = round(1/res);
+    center = mean(xtmp(k0-k1:k0+k1));
+    Xr = cat(1,Xr,xtmp(:)*0+center); Yr = cat(1,Yr,ytmp(:)); Zr = cat(1,Zr,xtmp(:));
+    
+    xtmp = xg{i};  ytmp = yg{i};
+    k0 = round(length(xtmp)/2); k1 = round(1/res);
+    center = mean(xtmp(k0-k1:k0+k1));
+    Xg = cat(1,Xg,xtmp(:)*0+center); Yg = cat(1,Yg,ytmp(:)); Zg = cat(1,Zg,xtmp(:));
+    
+    xtmp = xb{i};  ytmp = yb{i};
+    k0 = round(length(xtmp)/2); k1 = round(1/res);
+    center = mean(xtmp(k0-k1:k0+k1));
+    Xb = cat(1,Xb,xtmp(:)*0+center); Yb = cat(1,Yb,ytmp(:)); Zb = cat(1,Zb,xtmp(:));
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+for channel = 1:3
+    button = questdlg(['Do you want to characterize the ' sprintf('%s',fct_channeltocolor(channel)) ' channel?'],'Mutichannel correction','Yes','No','Yes') ;
+    if strcmp(button,'Yes')
+        clear x y z chan Y XCONV;
+        if channel==1
+            x = xr; y = yr; chan = 'red';
+        elseif channel==2
+            x = xg; y = yg; chan = 'green';
+        else
+            x = xb; y = yb; chan = 'blue';
+        end
+        xsave = x;
+        ysave = y;
+        %%%%%%%%%%%%%%%%%%%%%%%%%
+        %%Begin for polynomial and filter methods
+        xmin = min(x{1});
+        xmax = max(x{1});
+        for i = 1:nbbands
+            xmin = max(xmin,min(x{i}));
+            xmax = min(xmax,max(x{i}));
+        end
+        
+        clear center Ycenter;
+        center(1:nbbands) = 0;
+        Ycenter(1:nbbands) = 0;
+        
+        for i = 1:nbbands
+            xtmp = x{i};
+            ytmp = y{i};
+            %The following bugs if we have >= instead of >
+            k1 = min(find(xtmp > xmin));
+            k2 = max(find(xtmp < xmax));
+            %%%%%%
+            xtmp = xtmp(k1:k2);
+            ytmp = ytmp(k1:k2);
+            [min(xtmp) max(xtmp)]
+            x{i} = xtmp;
+            y{i} = ytmp;
+            %filtration
+            dim = 1; %0.5 cm
+            rect = ones(1,round(dim/res));
+            n1 = length(rect);
+            n2 = length(ytmp);
+            rect = rect/sum(rect);
+            yconv = conv(ytmp,rect);
+            xconv = conv(xtmp,rect);
+            yconv = yconv(n1:n2);
+            xconv = xconv(n1:n2);
+            XCONV{i} = xconv(:)';
+            Y{i} = yconv;
+            k3 = find(abs(xconv)==min(abs(xconv)));
+            Ycenter(i) = yconv(k3);
+            %polynomial fit
+            ptmp = 0;
+            iitmp = 0;
+            for ii = 2: maxorder
+                pii = polyfit(xtmp,ytmp,ii);
+                [optimum,inflex] = fct_polyanalysis(pii,[min(xtmp) max(xtmp)]);
+                noptimum = length(optimum);
+                ninflex = length(inflex);
+                if ii==2
+                    ptmp = pii;
+                    iitmp = ii;
+                elseif (noptimum==1)&&(optimum(1)<2)&&(optimum(1)>-2)
+                    if (polyval(pii,min(xtmp))<polyval(pii,optimum))&&(polyval(pii,max(xtmp)<polyval(pii,optimum)))
+                        ptmp = pii;
+                        iitmp = ii;
+                    end
+                end
+            end
+            p{i} = ptmp;
+            orders(i) = iitmp;
+            yi = polyval(p{i},xtmp);
+            k3 = min(find(abs(xtmp)==min(abs(xtmp))));
+            center(i) = yi(k3);
+        end
+        
+        xmin(1:nbbands) = 0;
+        xmax(1:nbbands) = 0;
+        delta(1:nbbands) = 0;
+        
+        for i = 1:nbbands
+            xtmp = XCONV{i};
+            xmin(i) = xtmp(1);
+            xmax(i) = xtmp(length(xtmp));
+            delta(i) = xtmp(2)-xtmp(1);
+        end
+        
+        xmin = max(xmin);
+        xmax = min(xmax);
+        delta = mean(delta);
+        xconv = xmin:delta:xmax;
+        
+        for i = 1:nbbands
+            xtmp = XCONV{i};
+            ytmp = Y{i};
+            Y{i} = interp1(xtmp,ytmp,xconv,'linear');
+        end
+        clear XCONV;
+        
+        %add artificial values
+        center = [center(:)' 65535];
+        orders = [orders(:)' 0];
+        p{length(p)+1} = 65535;
+        Ycenter = [Ycenter(:)' 65535];
+        Y{length(Y)+1} = Y{1}*0+65535;
+        x{length(x)+1} = x{1};
+        y{length(y)+1} = y{1}*0+65535;
+        
+        %optional
+        smin = min(center);
+        smax = max(center);
+        
+        %rearrange polynoms with center value
+        [Ycenter,index] = sort(Ycenter)
+        center = center(index);
+        orders = orders(index);
+        
+        clear ptmp;
+        clear xtmp;
+        clear ytmp;
+        clear Ytmp;
+        j = 0;
+        for i = index
+            j = j+1;
+            tmp1 = p{i}; ptmp{j} = tmp1(:)';
+            tmp2 = Y{i}; Ytmp{j} = tmp2(:)';
+            tmp3 = x{i}; xtmp{j} = tmp3(:)';
+            tmp4 = y{i}; ytmp{j} = tmp4(:)';
+        end
+        clear  p Y x y;
+        p = ptmp; Y = Ytmp; x = xtmp; y = ytmp;
+        
+        %save tmp.mat xsave ysave res nbbands;
+        %%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%
+        %New refined method
+        button = questdlg('Do you want to characterize with the new method?','New method','Yes','No','Yes') ;
+        if strcmp(button,'Yes')
+            [xlim_new,x0,slim_new,p_new,npol_new,orders_new,isnewmethod] = fct_NewHomogCorrMethod(xsave,ysave,nbbands,res);
+        else
+            isnewmethod = 0;
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%
+        %show data
+        button = questdlg('Do you want to characterize with the classic polynomial method?','Polynomial method','Yes','No','Yes') ;
+        if strcmp(button,'Yes')
+            ispolymethod = 1;
+        else
+            ispolymethod = 0;
+        end
+
+        button = questdlg('Do you want to characterize with the filter method?','Polynomial method','Yes','No','Yes') ;
+        if strcmp(button,'Yes')
+            isfiltmethod = 1;
+        else
+            isfiltmethod = 0;
+        end
+        
+        if ispolymethod
+            htmp3 = figure;
+            title('Polynomial method');
+            hold on;
+            for i = 1:length(center)
+                norm = 1;
+                if center(i)~=0
+                    norm = center(i);
+                end
+                figure(htmp3);
+                plot(x{i},i*y{i}/norm,x{i},i*polyval(p{i},x{i})/norm);
+            end
+            figure(htmp3);
+            hold off;
+            set(gca,'ylim',[0 length(center)*1.1]);
+        end
+        
+        if  isfiltmethod
+            htmp4 = figure;
+            title(['Filter method for ' chan  ' channel']);
+            hold on;
+            for i = 1:length(center)
+                norm = 1;
+                if Ycenter(i)~=0
+                    norm = Ycenter(i);
+                end
+                figure(htmp4);
+                plot(x{i},i*y{i}/norm,xconv,i*Y{i}/norm);
+            end
+            figure(htmp4);
+            hold off;
+            set(gca,'ylim',[0 length(center)*1.1]);
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%
+        %Save data
+        if ispolymethod
+            [ofilename,opathname]=uiputfile({'*.hmg'},['Save correction matrix (polynomial method) for ' chan ' channel']);
+            if ~strcmp(class(ofilename),'double')
+                fname = fct_makecleanfilename(opathname,ofilename);
+                %old method
+                err = fct_writecorrmatrix(fname,orders,xmin,xmax,smin,smax,p);
+                if err
+                    error('File not written');
+                end
+            else
+                error('Wrong file');
+            end
+        end
+        if isnewmethod
+            [ofilename,opathname]=uiputfile({'*.hmg'},['Save correction matrix (new method) for ' chan ' channel']);
+            if ~strcmp(class(ofilename),'double')
+                fname = fct_makecleanfilename(opathname,ofilename);
+                %old method
+                err = fct_writecorrmatrix3(fname,xlim_new,x0,slim_new,p_new,npol_new,orders_new)
+                if err
+                    error('File not written');
+                end
+            else
+                error('Wrong file');
+            end
+        end
+        if  isfiltmethod
+            [ofilename,opathname]=uiputfile({'*.hmg'},['Save correction matrix (filter method) for ' chan ' channel']);
+            if ~strcmp(class(ofilename),'double')
+                fname = fct_makecleanfilename(opathname,ofilename);
+                %new method
+                err = fct_writecorrmatrix2([fname],xconv,Y);
+                if err
+                    error('File not written');
+                end
+            else
+                error('Wrong file');
+            end
+        end
+    end
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%

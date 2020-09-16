@@ -7,12 +7,17 @@ function [Imcorr,xcorr] = fct_CorrectHomogAutomated(x,I,PR,PG,PB,xunique,corrdir
 %      s.^1.*x.^0 s.^1.*x.^1 s.^1.*x.^2 s.^1.*x.^3 ...
 %      s.^1.*x.^4 s.^1.*x.^5 ];
 %this is the compact/general way to write it 
-F = @(x,s,n) cat(2,repmat(s(:),1,n+1).^repmat(zeros(1,n+1),length(s(:)),1).*repmat(x(:),1,n+1).^repmat(0:n,length(x(:)),1),...
-                   repmat(s(:),1,n+1).^repmat(ones(1,n+1) ,length(s(:)),1).*repmat(x(:),1,n+1).^repmat(0:n,length(x(:)),1)    );
-
-orderR = length(PR)/2-1;
-orderG = length(PG)/2-1;
-orderB = length(PB)/2-1;
+% F = @(x,s,n) cat(2,repmat(s(:),1,n+1).^repmat(zeros(1,n+1),length(s(:)),1).*repmat(x(:),1,n+1).^repmat(0:n,length(x(:)),1),...
+%                    repmat(s(:),1,n+1).^repmat(ones(1,n+1) ,length(s(:)),1).*repmat(x(:),1,n+1).^repmat(0:n,length(x(:)),1)    );
+% orderR = length(PR)/2-1;
+% orderG = length(PG)/2-1;
+% orderB = length(PB)/2-1;
+%28 July 2020: based on Van Battum 2016 and Schoenfeld 2016, I make it symmetric with x
+F = @(x,s,n) cat(2,repmat(s(:),1,n/2+1).^repmat(zeros(1,n/2+1),length(s(:)),1).*repmat(x(:),1,n/2+1).^repmat(0:2:n,length(x(:)),1),...
+                          repmat(s(:),1,n/2+1).^repmat(ones(1,n/2+1) ,length(s(:)),1).*repmat(x(:),1,n/2+1).^repmat(0:2:n,length(x(:)),1)    );
+orderR = (length(PR)/2-1)*2;
+orderG = (length(PG)/2-1)*2;
+orderB = (length(PB)/2-1)*2;
 %%
 R = double(I(:,:,1));
 G = double(I(:,:,2));

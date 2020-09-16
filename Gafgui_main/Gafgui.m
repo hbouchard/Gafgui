@@ -2497,7 +2497,7 @@ function HOMOG_CREATECORRMAT_Callback(hObject, eventdata, handles)
 
 % handles = fct_CreateHomogCorrectionMatrixAuto(handles);
 % handles = fct_CreateHomogCorrectionMatrixSemiAuto(handles);
-if 1%CCD-based
+if 0%position-based
     handles = fct_CreateHomogCorrectionMatrixDetailed(handles);
 else%automated/continuous
     handles = fct_CreateHomogCorrectionMatrixAutomated(handles);
@@ -2529,7 +2529,10 @@ end
 if (~strcmp(class(cfilename),'double'))
     flag = 1;
     corrfname = fct_makecleanfilename(cpathname,cfilename);
-    [rawres,rawimsize,corrdir,xkrange,rrange,grange,brange,pr,pg,pb] = fct_ReadCorrmatrixDetailed(corrfname);
+%     [rawres,rawimsize,corrdir,xkrange,rrange,grange,brange,pr,pg,pb] = fct_ReadCorrmatrixDetailed(corrfname);
+    %[rawres,rawimsize,corrdir,xkrange,rrange,grange,brange,pr,pg,pb] = fct_ReadCorrmatrixDetailed(corrfname);
+    %I need to fix this...
+    [PR,PG,PB,xunique,rlims,glims,blims]  = fct_ReadHomogCorrAutomated(corrfname);
 else
     flag = 0;
 end
@@ -2544,18 +2547,20 @@ if flag
                 figure;
                 h = fct_display(uint16(Im),res);
 
-%                 direction = questdlg('In which direction do you correct the image?','Direction','Horizontal','Vertical','Horizontal') ;
-%                 switch direction
-%                     case 'Horizontal'
-%                         corrdir = 2;
-%                         x = x;
-%                     case 'Vertical'
-%                         corrdir = 1;
-%                         x = y;
-%                 end
-%                 [Imcorr,xcorr] = fct_CorrectHomogAutomated(x,Im,PR,PG,PB,xunique,corrdir);
-
-                [Imcorr,xkcorr] = fct_CorrectHomogDetailed(Im,rawres,rawimsize,corrdir,xkrange,rrange,grange,brange,pr,pg,pb);
+                if 0%position-based
+%                     [Imcorr,xkcorr] = fct_CorrectHomogDetailed(Im,rawres,rawimsize,corrdir,xkrange,rrange,grange,brange,pr,pg,pb);
+                else
+                    direction = questdlg('In which direction do you correct the image?','Direction','Horizontal','Vertical','Horizontal') ;
+                    switch direction
+                        case 'Horizontal'
+                            corrdir = 2;
+                            x = x;
+                        case 'Vertical'
+                            corrdir = 1;
+                            x = y;
+                    end
+                    [Imcorr,xcorr] = fct_CorrectHomogAutomated(x,Im,PR,PG,PB,xunique,corrdir);
+                end
                 
                 close(h);
 
@@ -2592,47 +2597,47 @@ function HOMOG_VISUALIZE_Callback(hObject, eventdata, handles)
 if (~strcmp(class(ifilename),'double'))
     
     fname = fct_makecleanfilename(ipathname,ifilename);
-    if 1%detailed
-        [corrres,rawimsize,corrdir,xkrange,rrange,grange,brange,pr,pg,pb] = fct_ReadCorrmatrixDetailed(fname);
-        [xgrid,ygrid] = fct_gridindextopos(rawimsize(1),rawimsize(2),corrres);
-        if corrdir==1
-            xrange = ygrid(xkrange(1):xkrange(2));
-        elseif ocrrdir==2
-            xrange = xgrid(xkrange(1):xkrange(2));
-        end
-        % Vizualise correction map   
-        sr = [min(rrange):100:max(rrange)]';
-        sg = [min(grange):100:max(grange)]';
-        sb = [min(brange):100:max(brange)]';
-        Sr = repmat(sr,1,length(xrange));
-        Sg = repmat(sg,1,length(xrange));
-        Sb = repmat(sb,1,length(xrange));
-        Xr = repmat(xrange(:)',length(sr),1);
-        Xg = repmat(xrange(:)',length(sg),1);
-        Xb = repmat(xrange(:)',length(sb),1);
-        PR1 = repmat(pr(1,:),length(sr),1);
-        PR2 = repmat(pr(2,:),length(sr),1);
-        PR3 = repmat(pr(3,:),length(sr),1);
-        PG1 = repmat(pg(1,:),length(sg),1);
-        PG2 = repmat(pg(2,:),length(sg),1);
-        PG3 = repmat(pg(3,:),length(sg),1); 
-        PB1 = repmat(pb(1,:),length(sb),1);
-        PB2 = repmat(pb(2,:),length(sb),1);
-        PB3 = repmat(pb(3,:),length(sb),1);  
-        Rhat = min(65535,max(0,PR1.*Sr.^2+PR2.*Sr.^1+PR3.*Sr.^0));
-        Ghat = min(65535,max(0,PG1.*Sg.^2+PG2.*Sg.^1+PG3.*Sg.^0));
-        Bhat = min(65535,max(0,PB1.*Sb.^2+PB2.*Sb.^1+PB3.*Sb.^0));
-
-        figure;
-        subplot(1,3,1);
-        mesh(Xr,Sr,Rhat./Sr);
-        title('Red');
-        subplot(1,3,2);
-        mesh(Xg,Sg,Ghat./Sg);
-        title('Green');
-        subplot(1,3,3);
-        mesh(Xb,Sb,Bhat./Sb);
-        title('Blue');
+    if 0%detailed
+%         [corrres,rawimsize,corrdir,xkrange,rrange,grange,brange,pr,pg,pb] = fct_ReadCorrmatrixDetailed(fname);
+%         [xgrid,ygrid] = fct_gridindextopos(rawimsize(1),rawimsize(2),corrres);
+%         if corrdir==1
+%             xrange = ygrid(xkrange(1):xkrange(2));
+%         elseif ocrrdir==2
+%             xrange = xgrid(xkrange(1):xkrange(2));
+%         end
+%         % Vizualise correction map   
+%         sr = [min(rrange):100:max(rrange)]';
+%         sg = [min(grange):100:max(grange)]';
+%         sb = [min(brange):100:max(brange)]';
+%         Sr = repmat(sr,1,length(xrange));
+%         Sg = repmat(sg,1,length(xrange));
+%         Sb = repmat(sb,1,length(xrange));
+%         Xr = repmat(xrange(:)',length(sr),1);
+%         Xg = repmat(xrange(:)',length(sg),1);
+%         Xb = repmat(xrange(:)',length(sb),1);
+%         PR1 = repmat(pr(1,:),length(sr),1);
+%         PR2 = repmat(pr(2,:),length(sr),1);
+%         PR3 = repmat(pr(3,:),length(sr),1);
+%         PG1 = repmat(pg(1,:),length(sg),1);
+%         PG2 = repmat(pg(2,:),length(sg),1);
+%         PG3 = repmat(pg(3,:),length(sg),1); 
+%         PB1 = repmat(pb(1,:),length(sb),1);
+%         PB2 = repmat(pb(2,:),length(sb),1);
+%         PB3 = repmat(pb(3,:),length(sb),1);  
+%         Rhat = min(65535,max(0,PR1.*Sr.^2+PR2.*Sr.^1+PR3.*Sr.^0));
+%         Ghat = min(65535,max(0,PG1.*Sg.^2+PG2.*Sg.^1+PG3.*Sg.^0));
+%         Bhat = min(65535,max(0,PB1.*Sb.^2+PB2.*Sb.^1+PB3.*Sb.^0));
+% 
+%         figure;
+%         subplot(1,3,1);
+%         mesh(Xr,Sr,Rhat./Sr);
+%         title('Red');
+%         subplot(1,3,2);
+%         mesh(Xg,Sg,Ghat./Sg);
+%         title('Green');
+%         subplot(1,3,3);
+%         mesh(Xb,Sb,Bhat./Sb);
+%         title('Blue');
     else%automated/continuous
         [PR,PG,PB,xunique,rlims,glims,blims]  = fct_ReadHomogCorrAutomated(fname);
         %here we don't care about limits in signal because we take the signal
@@ -2642,14 +2647,15 @@ if (~strcmp(class(ifilename),'double'))
         [lin,col] = size(IX); 
         ix = reshape(IX,lin*col,1);
         is = reshape(IS,lin*col,1);
-        F = @(x,s,n) cat(2,repmat(s(:),1,n+1).^repmat(zeros(1,n+1),length(s(:)),1).*repmat(x(:),1,n+1).^repmat(0:n,length(x(:)),1),...
-                       repmat(s(:),1,n+1).^repmat(ones(1,n+1) ,length(s(:)),1).*repmat(x(:),1,n+1).^repmat(0:n,length(x(:)),1)    );
-
-        orderR = length(PR)/2-1;
-        orderG = length(PG)/2-1;
-        orderB = length(PB)/2-1;
+%         F = @(x,s,n) cat(2,repmat(s(:),1,n+1).^repmat(zeros(1,n+1),length(s(:)),1).*repmat(x(:),1,n+1).^repmat(0:n,length(x(:)),1),...
+%                        repmat(s(:),1,n+1).^repmat(ones(1,n+1) ,length(s(:)),1).*repmat(x(:),1,n+1).^repmat(0:n,length(x(:)),1)    );
+        %28 July 2020: based on Van Battum 2016 and Schoenfeld 2016, I make it symmetric with x
+        F = @(x,s,n) cat(2,repmat(s(:),1,n/2+1).^repmat(zeros(1,n/2+1),length(s(:)),1).*repmat(x(:),1,n/2+1).^repmat(0:2:n,length(x(:)),1),...
+                          repmat(s(:),1,n/2+1).^repmat(ones(1,n/2+1) ,length(s(:)),1).*repmat(x(:),1,n/2+1).^repmat(0:2:n,length(x(:)),1)    );
+        orderR = (length(PR)/2-1)*2;
+        orderG = (length(PG)/2-1)*2;
+        orderB = (length(PB)/2-1)*2;
         %predicted correction factors for interpolation
-
         [IXr,ISr] = meshgrid(xunique,rlims(1):100:rlims(2));
         [IXg,ISg] = meshgrid(xunique,glims(1):100:glims(2));
         [IXb,ISb] = meshgrid(xunique,blims(1):100:blims(2));
@@ -2666,31 +2672,59 @@ if (~strcmp(class(ifilename),'double'))
         Fr = reshape(F(ixr,isr,orderR)*PR,linr,colr)./ISr;
         Fg = reshape(F(ixg,isg,orderG)*PG,ling,colg)./ISg;
         Fb = reshape(F(ixb,isb,orderB)*PB,linb,colb)./ISb;
+        %28 July 2020
+        Ar = 0; Br = 0; 
+        for i=1:length(PR)/2
+            Ar = Ar + PR(i)*IXr.^(2*(i-1));
+            Br = Br + PR(length(PR)/2+i)*IXr.^(2*(i-1));
+        end
+        Ag = 0; Bg = 0;
+        for i=1:length(PG)/2
+            Ag = Ag + PG(i)*IXg.^(2*(i-1));
+            Bg = Bg + PG(length(PG)/2+i)*IXg.^(2*(i-1));
+        end            
+        Ab = 0; Bb = 0;
+        for i=1:length(PB)/2
+            Ab = Ab + PB(i)*IXb.^(2*(i-1));
+            Bb = Bb + PB(length(PB)/2+i)*IXb.^(2*(i-1));
+        end            
+        invFcorr_r = ISr./((ISr-Ar)./Br);
+        invFcorr_g = ISg./((ISg-Ag)./Bg);
+        invFcorr_b = ISb./((ISb-Ab)./Bb);
         %Display of raw signal inference
+%         29 July: for the paper
+%         figure;
+%         mesh(IXr,ISr,invFcorr_r); colormap('jet')
+%         xlabel('Position (cm)'); ylabel('Raw signal'); zlabel('Inverse correction factor');
+%         view(-15,15);
+%         %title('Red');
+%         set(gca,'fontsize',24,'fontname','Times');
+        %
         figure;
         subplot(1,3,1);
-        mesh(IXr,ISr,Fr); colormap('jet')
+        mesh(IXr,ISr,invFcorr_r); colormap('jet')
+        xlabel('Position (cm)'); ylabel('Raw signal'); zlabel('Inverse correction factor');
         view(-15,15);
         title('Red');
         subplot(1,3,2);
-        mesh(IXg,ISg,Fg); colormap('jet')
+        mesh(IXg,ISg,invFcorr_g); colormap('jet')
+        xlabel('Position (cm)'); ylabel('Raw signal'); zlabel('Inverse correction factor');
         view(-15,15); 
         title('Green');
         subplot(1,3,3);
-        mesh(IXb,ISb,Fb); colormap('jet')
+        mesh(IXb,ISb,invFcorr_b); colormap('jet')
+        xlabel('Position (cm)'); ylabel('Raw signal'); zlabel('Inverse correction factor');
         view(-15,15);
         title('Blue');
-    end      
-    
+    end          
 end
-
 % --------------------------------------------------------------------
 function HOMOG_MATRXDIFF_Callback(hObject, eventdata, handles)
 % hObject    handle to HOMOG_MATRXDIFF (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-%This is now diabled
+%This is now diabled 
 
 if 0
     [ifilename,ipathname] = uigetfile({'*.hm3'},'Choose correction matrix file');
@@ -3828,6 +3862,9 @@ else
     hold off;
     xlabel('Raw signal');
     ylabel('Corrected signal');
+%     set(gca,'fontsize',24,'fontname','Times');
+    xlim([0 65535]);
+    ylim([0 65535]);
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

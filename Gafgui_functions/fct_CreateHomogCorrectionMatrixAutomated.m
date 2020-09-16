@@ -159,9 +159,12 @@ if flag~=-1
 %          s.^1.*x.^0 s.^1.*x.^1 s.^1.*x.^2 s.^1.*x.^3 ...
 %          s.^1.*x.^4 s.^1.*x.^5 ];
     %this is the compact/general way to write it 
-    F = @(x,s,n) cat(2,repmat(s(:),1,n+1).^repmat(zeros(1,n+1),length(s(:)),1).*repmat(x(:),1,n+1).^repmat(0:n,length(x(:)),1),...
-                       repmat(s(:),1,n+1).^repmat(ones(1,n+1) ,length(s(:)),1).*repmat(x(:),1,n+1).^repmat(0:n,length(x(:)),1)    );
-    
+    %F = @(x,s,n) cat(2,repmat(s(:),1,n+1).^repmat(zeros(1,n+1),length(s(:)),1).*repmat(x(:),1,n+1).^repmat(0:n,length(x(:)),1),...
+    %                   repmat(s(:),1,n+1).^repmat(ones(1,n+1) ,length(s(:)),1).*repmat(x(:),1,n+1).^repmat(0:n,length(x(:)),1)    );
+    %28 July 2020: based on Van Battum 2016 and Schoenfeld 2016, I make it symmetric with x
+    F = @(x,s,n) cat(2,repmat(s(:),1,n/2+1).^repmat(zeros(1,n/2+1),length(s(:)),1).*repmat(x(:),1,n/2+1).^repmat(0:2:n,length(x(:)),1),...
+                          repmat(s(:),1,n/2+1).^repmat(ones(1,n/2+1) ,length(s(:)),1).*repmat(x(:),1,n/2+1).^repmat(0:2:n,length(x(:)),1)    );
+                   
     %apply LS fit
     [lin,col] = size(R); 
     x = reshape(X,lin*col,1);
@@ -178,11 +181,17 @@ if flag~=-1
         orderR = 0; orderG = 0; orderB = 0;
         flag = 1;
         clear tmp;
-        while (orderR<1||orderR>6)&&(orderG<1||orderG>6)&&(orderB<1||orderB>6)&&flag==1
-            tmp{1} = 'Order of fit in position for RED (1-5)';
-            tmp{2} = 'Order of fit in position for GREEN (1-5)';
-            tmp{3} = 'Order of fit in position for BLUE (1-5)';
-            answer = inputdlg(tmp,'Input',[1 1 1],{'5','4','4'});
+%         while (orderR<1||orderR>6)&&(orderG<1||orderG>6)&&(orderB<1||orderB>6)&&flag==1
+%             tmp{1} = 'Order of fit in position for RED (1-5)';
+%             tmp{2} = 'Order of fit in position for GREEN (1-5)';
+%             tmp{3} = 'Order of fit in position for BLUE (1-5)';
+%             answer = inputdlg(tmp,'Input',[1 1 1],{'5','4','4'});
+        %28 July 2020: I make sure it is symmetric
+        while (orderR<1||orderR>6)&&(orderG<1||orderG>6)&&(orderB<1||orderB>6)&&(mod(orderR,2)==0||mod(orderG,2)==0||mod(orderB,2)==0)&&flag==1
+            tmp{1} = 'Order of fit in position for RED (2,4 or 6)';
+            tmp{2} = 'Order of fit in position for GREEN (2,4 or 6)';
+            tmp{3} = 'Order of fit in position for BLUE (2,4 or 6)';
+            answer = inputdlg(tmp,'Input',[1 1 1],{'4','2','2'});
             if numel(answer)==0
                 flag = 0;
                 unconfirmed = 0;
@@ -198,18 +207,19 @@ if flag~=-1
             PR = F(x,r0,orderR)\r;
             PG = F(x,g0,orderG)\g;
             PB = F(x,b0,orderB)\b;
-            %what if I put all colors into 1 fit
-            if 0%does seem like a good idea...
-                P = F(cat(1,x,cat(1,x,x)),cat(1,r0,cat(1,g0,b0)),orderR)\cat(1,r,cat(1,g,b));
-                PR = P;
-                PG = P;
-                PB = P;
-            %what if I put green and blue into 1 fit
-            elseif 1
-                P = F(cat(1,x,x),cat(1,g0,b0),orderG)\cat(1,g,b);
-                PG = P;
-                PB = P;            
-            end
+%           Commented on 28 July 2020
+%             %what if I put all colors into 1 fit
+%             if 0%does seem like a good idea...
+%                 P = F(cat(1,x,cat(1,x,x)),cat(1,r0,cat(1,g0,b0)),orderR)\cat(1,r,cat(1,g,b));
+%                 PR = P;
+%                 PG = P;
+%                 PB = P;
+%             %what if I put green and blue into 1 fit
+%             elseif 0
+%                 P = F(cat(1,x,x),cat(1,g0,b0),orderG)\cat(1,g,b);
+%                 PG = P;
+%                 PB = P;            
+%             end
             %interpolation
             xunique = sort(unique(xvect));
             %here this needs to be fixed
@@ -238,27 +248,84 @@ if flag~=-1
             Fb = reshape(F(ixb,isb,orderB)*PB,linb,colb)./ISb;
             %Display of raw signal inference
             figure;
-            subplot(1,3,1);
+            subplot(2,3,1);
             hold on;
             plot3(reshape(X,lin*col,1),reshape(R0,lin*col,1),reshape(R,lin*col,1)./reshape(R0,lin*col,1),'.r','markersize',1);
             mesh(IXr,ISr,Fr); colormap('gray')
             hold off;
             view(-15,15);
             title('Red');
-            subplot(1,3,2);
+            subplot(2,3,2);
             hold on;
             plot3(reshape(X,lin*col,1),reshape(G0,lin*col,1),reshape(G,lin*col,1)./reshape(G0,lin*col,1),'.g','markersize',1);
             mesh(IXg,ISg,Fg); colormap('gray')
             hold off;
             view(-15,15); 
             title('Green');
-            subplot(1,3,3);
+            subplot(2,3,3);
             hold on;
             plot3(reshape(X,lin*col,1),reshape(B0,lin*col,1),reshape(B,lin*col,1)./reshape(B0,lin*col,1),'.b','markersize',1);
             mesh(IXb,ISb,Fb); colormap('gray')
             hold off;
             view(-15,15);
             title('Blue');
+            %predicted correction factors for interpolation
+            [IXr,ISr] = meshgrid(xunique,rlims(1):100:rlims(2));
+            [IXg,ISg] = meshgrid(xunique,glims(1):100:glims(2));
+            [IXb,ISb] = meshgrid(xunique,blims(1):100:blims(2));
+            [linr,colr] = size(IXr); 
+            [ling,colg] = size(IXg); 
+            [linb,colb] = size(IXb); 
+            ixr = reshape(IXr,linr*colr,1);
+            ixg = reshape(IXg,ling*colg,1);
+            ixb = reshape(IXb,linb*colb,1);
+            isr = reshape(ISr,linr*colr,1);
+            isg = reshape(ISg,ling*colg,1);
+            isb = reshape(ISb,linb*colb,1);
+            %predicted correction factors for interpolation
+            Fr = reshape(F(ixr,isr,orderR)*PR,linr,colr)./ISr;
+            Fg = reshape(F(ixg,isg,orderG)*PG,ling,colg)./ISg;
+            Fb = reshape(F(ixb,isb,orderB)*PB,linb,colb)./ISb;
+            %Display of raw signal inference
+            subplot(2,3,4);
+            mesh(IXr,ISr,Fr); colormap('gray')
+            view(-15,15);
+            title('Red');
+            subplot(2,3,5);
+            mesh(IXg,ISg,Fg); colormap('gray')
+            view(-15,15); 
+            title('Green');
+            subplot(2,3,6);
+            mesh(IXb,ISb,Fb); colormap('gray')
+            view(-15,15);
+            title('Blue');
+%             %28 July 2020: this is a test to make sure it is consisten with
+%             %our new paper
+%             Ar = 0; Br = 0; 
+%             for i=1:length(PR)/2
+%                 Ar = Ar + PR(i)*IXr.^(2*(i-1));
+%                 Br = Br + PR(length(PR)/2+i)*IXr.^(2*(i-1));
+%             end
+%             Ag = 0; Bg = 0;
+%             for i=1:length(PG)/2
+%                 Ag = Ag + PG(i)*IXg.^(2*(i-1));
+%                 Bg = Bg + PG(length(PG)/2+i)*IXg.^(2*(i-1));
+%             end            
+%             Ab = 0; Bb = 0;
+%             for i=1:length(PB)/2
+%                 Ab = Ab + PB(i)*IXb.^(2*(i-1));
+%                 Bb = Bb + PB(length(PB)/2+i)*IXb.^(2*(i-1));
+%             end            
+%             Ftestr = ISr./((ISr-Ar)./Br);
+%             Ftestg = ISg./((ISg-Ag)./Bg);
+%             Ftestb = ISb./((ISb-Ab)./Bb);
+%             figure;
+%             subplot(2,3,1);mesh(IXr,ISr,Ftestr);colormap('jet');view(-15,15);title('Red');
+%             subplot(2,3,2);mesh(IXg,ISg,Ftestg);colormap('jet');view(-15,15);title('Green');
+%             subplot(2,3,3);mesh(IXb,ISb,Ftestb);colormap('jet');view(-15,15);title('Blue');  
+%             subplot(2,3,4);mesh(IXr,ISr,Fr);colormap('jet');view(-15,15);title('Red');
+%             subplot(2,3,5);mesh(IXg,ISg,Fg);colormap('jet');view(-15,15);title('Green');
+%             subplot(2,3,6);mesh(IXb,ISb,Fb);colormap('jet');view(-15,15);title('Blue');            
             %%
             answer = questdlg('Would you like to keep this fit?', ...
                               'Fit', 'Yes','No','Cancel','Yes');
@@ -296,23 +363,24 @@ if flag~=-1
         
         [Imcorr,xcorr] = fct_CorrectHomogAutomated(x,Im,PR,PG,PB,xunique,corrdir);    
         %% Display
-        figure;
-        subplot(1,2,1);
-        mesh(R); colormap('gray'); %impixelinfo;
-        subplot(1,2,2);
-        mesh(Imcorr(:,:,1)); colormap('gray'); %impixelinfo;
-
-        figure;
-        subplot(1,2,1);
-        mesh(G); colormap('gray'); %impixelinfo;
-        subplot(1,2,2);
-        mesh(Imcorr(:,:,2)); colormap('gray'); %impixelinfo;
-
-        figure;
-        subplot(1,2,1);
-        mesh(B); colormap('gray'); %impixelinfo;
-        subplot(1,2,2);
-        mesh(Imcorr(:,:,3)); colormap('gray'); %impixelinfo;
+%       28 July 2020: I'm not sure what I am getting from this        
+%         figure;
+%         subplot(1,2,1);
+%         imagesc(R); colormap('gray'); %impixelinfo;
+%         subplot(1,2,2);
+%         imagesc(Imcorr(:,:,1)); colormap('gray'); %impixelinfo;
+% 
+%         figure;
+%         subplot(1,2,1);
+%         imagesc(G); colormap('gray'); %impixelinfo;
+%         subplot(1,2,2);
+%         imagesc(Imcorr(:,:,2)); colormap('gray'); %impixelinfo;
+% 
+%         figure;
+%         subplot(1,2,1);
+%         imagesc(B); colormap('gray'); %impixelinfo;
+%         subplot(1,2,2);
+%         imagesc(Imcorr(:,:,3)); colormap('gray'); %impixelinfo;
         %% Write correction matrix
         [ofilename,opathname]=uiputfile({'*.hm3'},['Save homogeneity correction']);
         if ~strcmp(class(ofilename),'double')

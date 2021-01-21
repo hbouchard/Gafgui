@@ -7,7 +7,7 @@ function err = fct_version()
 
 %dumb = fileread('licenceGafgui.txt')
 s = sprintf('Gafgui version 4.0');
-s = sprintf('%s\nCopyright (C) 2007-2020 by Hugo Bouchard',s); 
+s = sprintf('%s\nCopyright (C) 2007-2021 by Hugo Bouchard',s); 
 s = sprintf('%s\nMy contact is h.bouchard@umontreal.ca',s);
 s = sprintf('%s\n',s);  
 s = sprintf('%s\nThis program is free software: you can redistribute it and/or modify',s); 

@@ -1,5 +1,5 @@
 %     Gafgui version 4.0
-%     Copyright (C) 2007-2020  by Hugo Bouchard. 
+%     Copyright (C) 2007-2021  by Hugo Bouchard. 
 %     My contact is h.bouchard@umontreal.ca
 %
 %     This program is free software: you can redistribute it and/or modify
@@ -48,7 +48,7 @@ function varargout = Gafgui(varargin)
 
 % Edit the above text to modify the response to help Gafgui
 
-% Last Modified by GUIDE v2.5 11-Feb-2020 18:50:41
+% Last Modified by GUIDE v2.5 20-Jan-2021 21:24:22
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -149,7 +149,6 @@ function MENUFILE_Callback(hObject, eventdata, handles)
 % hObject    handle to MENUFILE (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
 
 % --------------------------------------------------------------------
 function MENUIMPORTIMAGE_Callback(hObject, eventdata, handles)
@@ -320,8 +319,23 @@ function MULTICHANNEL_CHARACTERIZE_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+
+% --------------------------------------------------------------------
+function MULTI_CREATE_Callback(hObject, eventdata, handles)
+% hObject    handle to MULTI_CREATE (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
 %err = fct_MultichCharactLinearNew(handles);
 handles = fct_CreateMultichannelCorrection(handles)
+
+% --------------------------------------------------------------------
+function MULTI_VISUALIZE_Callback(hObject, eventdata, handles)
+% hObject    handle to MULTI_VISUALIZE (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
 % --------------------------------------------------------------------
 function MULTICHANNEL_CORRECT_Callback(hObject, eventdata, handles)
 % hObject    handle to MULTICHANNEL_CORRECT (see GCBO)
@@ -457,7 +471,7 @@ if fct_isthereanimage(handles)
         %CREATION OF NEW VARIABLES
         handles.z=z;
         %UPDATE DISPLAY
-        handles = fct_updatedisplay(handles);;
+        handles = fct_updatedisplay(handles);
         % Update handles structure
         guidata(hObject, handles);
     end    
@@ -1028,10 +1042,10 @@ if fct_isthereanimage(handles)
     z = handles.z;
     h = handles.H;
     
-    if (handles.data == 1)
+    if (handles.data == 1)%signal
         msgbox('Convert to net optical density first.','Error');
         h = gcf;
-    elseif (handles.data == 2)
+    elseif (handles.data == 2)%OD or Eigencolor ratio
         if max(size(handles.BCKGRND))==0
             msgbox('Define background first.','Bruit de fond');
         else
@@ -1065,7 +1079,7 @@ if fct_isthereanimage(handles)
         z = handles.z;
         h = handles.H;
         
-    elseif (handles.data == 3)
+    elseif (handles.data == 3)% net OD or net Eigencolor ratio
         
         %CREATION OF NEW VARIABLES
         if max(size(handles.cfilename))==0
@@ -1083,11 +1097,13 @@ if fct_isthereanimage(handles)
         %HB: 30 March 2020: there is a bug if I press cancel to choosing a
         %calibration file
         if file~=-1
-            [DOSE,OD,M,opt,sigparam,Npix] = fct_readcalfile(file);
+            %HB: 19 jan 2021: I need to change this 
+            %[DOSE,OD,M,opt,sigparam,Npix] = fct_readcalfile(file);
+            [DOSE,nOD,sOD,OD0,Npix,res,channel,opt,M] = fct_ReadCalFileMulti(file);
             fclose(file);
             
-            [odi,dosei] = fct_getcalcurvepoints(DOSE,OD,M,opt);
-            if max(max(z))>max(OD)||min(min(z))<min(OD)
+            [odi,dosei] = fct_getcalcurvepoints(DOSE,nOD,M,opt);
+            if max(max(z))>max(nOD)||min(min(z))<min(nOD)
                 h_msg = msgbox('Some values of OD are out of range, Values will be saturated','Warning');
                 uiwait(h_msg);
                 figure(h);
@@ -1114,36 +1130,36 @@ if fct_isthereanimage(handles)
             guidata(hObject, handles);
                        
         end
-    elseif (handles.data == 5)
-        %CREATION OF NEW VARIABLES
-        if max(size(handles.cfilename))==0
-            
-            [ifilename,ipathname] = uigetfile({'*.mlt'},'Choose calibration curve');
-            
-            if ~strcmp(class(ifilename),'double')
-                file = fopen(fct_makecleanfilename(ipathname,ifilename),'r');
-                handles.cfilename = fct_makecleanfilename(ipathname,ifilename);
-            else 
-                file = -1;
-            end
-        else
-            file = fopen(handles.cfilename,'r');
-        end
-        if file~=-1
-            [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
-            fclose(file);
-            
-            handles.z = (z-c(1))/c(2);
-            handles.data = 4;
-            
-            %UPDATE DISPLAY
-            figure(handles.H);
-            handles = fct_updatedisplay(handles);;
-            % Update handles structure
-            guidata(hObject, handles);
-                       
-        end        
-    elseif handles.data==4
+%     elseif (handles.data == 5)
+%         %CREATION OF NEW VARIABLES
+%         if max(size(handles.cfilename))==0
+%             
+%             [ifilename,ipathname] = uigetfile({'*.mlt'},'Choose calibration curve');
+%             
+%             if ~strcmp(class(ifilename),'double')
+%                 file = fopen(fct_makecleanfilename(ipathname,ifilename),'r');
+%                 handles.cfilename = fct_makecleanfilename(ipathname,ifilename);
+%             else 
+%                 file = -1;
+%             end
+%         else
+%             file = fopen(handles.cfilename,'r');
+%         end
+%         if file~=-1
+%             [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
+%             fclose(file);
+%             
+%             handles.z = (z-c(1))/c(2);
+%             handles.data = 4;
+%             
+%             %UPDATE DISPLAY
+%             figure(handles.H);
+%             handles = fct_updatedisplay(handles);;
+%             % Update handles structure
+%             guidata(hObject, handles);
+%                        
+%         end        
+    elseif handles.data==4%dose already
     else
         error('Unsolved error');
     end    
@@ -1238,13 +1254,17 @@ function CALCURVE_CREATE_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % button = questdlg('What type of calibration do you wish?','Channel','Single','Multi','Multi');
-button = 'Single';
-if strcmp(button,'Multi')
-    err = fct_CreateCalCurveMulti(handles);
-else
-%     err = fct_CreateCalCurveSingle(handles);
-    err = fct_CreateCalCurveSingleNewUncertROI(handles);
-end
+% %button = 'Single';
+% if strcmp(button,'Multi')
+% %     err = fct_CreateCalCurveMulti(handles);
+%     err = fct_CreateCalCurveMultiNewUncertROI(handles);
+% else
+% %     err = fct_CreateCalCurveSingle(handles);
+%     err = fct_CreateCalCurveSingleNewUncertROI(handles);
+% end
+
+err = fct_CreateCalCurveNewMultiMethod(handles);
+
 
 % --------------------------------------------------------------------
 function BCKGRND_DEFINE_Callback(hObject, eventdata, handles)
@@ -1354,8 +1374,8 @@ if fct_isthereanimage(handles)
         msgbox('Cannot perform operation from raw optical density.','Raw OD');
     elseif handles.data==3
         msgbox('Cannot perform operation from net optical density.','Net OD');
-    elseif handles.data==5
-        msgbox('Cannot perform operation from xi.','Xi');
+%     elseif handles.data==5
+%         msgbox('Cannot perform operation from xi.','Xi');
     else
         button = questdlg('How do you wish to define the value?','Reference dose','Region','Manually','Region');
         if strcmp(button,'Region')
@@ -1364,6 +1384,7 @@ if fct_isthereanimage(handles)
             Npix = Npix*(handles.DELTA/handles.CCDres)^2;
             if handles.channel==4
                 file = fopen(handles.cfilename,'r');
+                %HB: 19 jan 2021: to be updated
                 [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
                 fclose(file);
                 [sd,sxi] = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,Npix,mu);
@@ -1574,6 +1595,7 @@ if fct_isthereanimage(handles)
         elseif (handles.data==4)
             if (handles.channel==4)
                 file = fopen(handles.cfilename,'r');
+                %HB 19 jan 2021: to be updated
                 [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
                 fclose(file);
                 if  max(size(handles.DOSEREF))==0;
@@ -1645,6 +1667,7 @@ if fct_isthereanimage(handles)
             elseif (handles.data==4)
                 if (handles.channel==4)
                     file = fopen(handles.cfilename,'r');
+                    %HB 19 jan 2021: to be updated
                     [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
                     fclose(file);
                     if  max(size(handles.DOSEREF))==0;
@@ -1741,7 +1764,8 @@ if fct_isthereanimage(handles)
                         elseif (handles.data==4)
                             if (handles.channel==4)
                                 file = fopen(handles.cfilename,'r');
-                                [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
+                                %HB 19 jan 2021: to be updated
+%                                 [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
                                 fclose(file);
                            
                                 if  max(size(handles.DOSEREF))==0;
@@ -2002,8 +2026,11 @@ if ~strcmp(class(ifilename),'double')
 %         [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
 %         h = fct_show_calcurve_multi(DOSE,XI,sXI,c,V,rescal,sximesh);
 %     else
-        [DOSE,OD,M,opt,sigparam,Npix] = fct_readcalfile(file);
-        if 1
+
+        %HB: 18 jan 2021 we changed the calibration file
+%         [DOSE,OD,M,opt,sigparam,Npix] = fct_readcalfile(file);
+        [DOSE,nTHETA,sTHETA,THETA0,Npix,res,channel,opt,M] = fct_ReadCalFileMulti(file);
+        if 0%this is not needed and only for developers
             button = questdlg('Do you wish to see all functions?','Vizualisation','Yes','No','No');
         else
             button = 'No';
@@ -2014,7 +2041,8 @@ if ~strcmp(class(ifilename),'double')
             show_forcing = 1;
         end
         %show_forcing = 0;
-        h = fct_show_calcurve(DOSE,OD,M,opt,show_forcing);
+%         h = fct_show_calcurve(DOSE,nTHETA,M,opt,show_forcing);
+        h = fct_ShowCalcurveMulti(DOSE,nTHETA,sTHETA,THETA0,Npix,res,channel,opt,M,show_forcing);
 %     end
     title(fct_addbackslash(fct_makecleanfilename(ipathname,ifilename)));
     fclose(file);
@@ -2026,19 +2054,23 @@ function CALCURVE_SETDEFAULT_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-if strcmp(handles.defaultcolor,'Multi')
-    [ifilename,ipathname] = uigetfile({'*.mlt'},'Choose calibration curve');
-else
-    [ifilename,ipathname] = uigetfile({'*.cal'},'Choose calibration curve');
-end
+% if strcmp(handles.defaultcolor,'Multi')
+%     [ifilename,ipathname] = uigetfile({'*.mlt'},'Choose calibration curve');
+% else
+%     [ifilename,ipathname] = uigetfile({'*.cal'},'Choose calibration curve');
+% end
+
+[ifilename,ipathname] = uigetfile({'*.cal'},'Choose calibration curve');
 if ~strcmp(class(ifilename),'double')
     file = fopen(fct_makecleanfilename(ipathname,ifilename),'r');
+    
+%     if strcmp(handles.defaultcolor,'Multi')
+%         [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
+%     else
+%         [DOSE,OD,M,opt,sigparam,Npix] = fct_readcalfile(file);
+%     end
 
-    if strcmp(handles.defaultcolor,'Multi')
-        [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
-    else
-        [DOSE,OD,M,opt,sigparam,Npix] = fct_readcalfile(file);
-    end
+    [DOSE,nTHETA,sTHETA,THETA0,Npix,res,channel,opt,N] = fct_ReadCalFileMulti(file);
     fclose(file);
     handles.cfilename = fct_makecleanfilename(ipathname,ifilename);
     
@@ -2296,7 +2328,15 @@ if fct_isthereanimage(handles)
             norm = max(max(handles.z));
         end
         
-        [x,y,nx,ny]=fct_getpoints(handles.z,handles.DELTA);
+        %HB 17 jan 2021 : here to inform the use what he / she is doing       
+        answer = questdlg('Do you wish to define the origin?','Origin','Yes','No','No');
+        
+        if strcmp(answer,'Yes')
+            [x,y]= fct_getpoints(handles.z,handles.DELTA);
+        else
+            x = 0;
+            y = 0;
+        end
         
         z = handles.z*100/norm;
         ox=mean(x);
@@ -2402,7 +2442,7 @@ if fct_isthereanimage(handles)
         answer = questdlg('Data was not filtered. Continue?','Filtering','Yes','No','No');
     end
     if strcmp(answer,'Yes')
-        button = questdlg('How do you wish to normalize?','Normalizsation','Point','Region','Maximum value','Region');
+        button = questdlg('How do you wish to normalize?','Normalization','Point','Region','Maximum value','Region');
         if strcmp(button,'Point')
             [x,y,nx,ny] = fct_getpoints(handles.z,handles.DELTA);
             z = handles.z;
@@ -2414,8 +2454,16 @@ if fct_isthereanimage(handles)
         elseif strcmp(button,'Maximum value')
             norm = max(max(handles.z));
         end
+
+        %HB 17 jan 2021 : here to inform the use what he / she is doing       
+        answer = questdlg('Do you wish to define the origin?','Origin','Yes','No','No');
         
-        [x,y,nx,ny]= fct_getpoints(handles.z,handles.DELTA);
+        if strcmp(answer,'Yes')
+            [x,y]= fct_getpoints(handles.z,handles.DELTA);
+        else
+            x = 0;
+            y = 0;
+        end
         
         z = handles.z/norm*100;
         ox=mean(x);
@@ -3310,53 +3358,54 @@ function VARANALYSIS_SINGLE_Callback(hObject, eventdata, handles)
 if ~strcmp(class(ifilename),'double')
     
     filename = fct_makecleanfilename(ipathname,ifilename);
-    if 0%strcmp(handles.defaultcolor,'Multi')
+%     if 0%strcmp(handles.defaultcolor,'Multi')
+%         file = fopen(filename,'r');
+%         [DOSE,XI,sXI,c,V,res,sximesh] = fct_ReadCalFileMulti(file);
+%         fclose(file);       
+%         npix = floor(0.1/handles.CCDres^2);
+%         dose = 10:10:max(DOSE);
+%         G = [dose(:).^0 dose(:).^1];
+%         xi = G*c;
+%         sd1 = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,sximesh.npix0,dose);
+%         sd2 = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,npix,dose);
+% 
+%         k = find((sd2(:)./dose(:))==min(sd2./dose(:)));
+%         r = 0.1:0.01:2;
+%         sr1 = fct_UncertaintyMultichannelSingleMeasRel(c,V,sximesh,sximesh.npix0,dose(k),sximesh.npix0,r(:).*dose(k));
+%         sr2 = fct_UncertaintyMultichannelSingleMeasRel(c,V,sximesh,npix,dose(k),npix,r(:).*dose(k));
+%         
+%         figure;
+%         subplot(1,2,1)
+%         plot(dose(:),sd1(:)./dose(:)*100,'--k',dose(:),sd2(:)./dose(:)*100,'k','linewidth',2);
+%         set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
+%         xlabel('DI');
+%         ylabel('Type A uncertainty on DI (%)');
+%         title(fct_addbackslash(ifilename));
+%         set(gca,'Ylim',[0 5],'Xlim',[0 max(DOSE)]);
+%         grid on;
+%         str{1} = sprintf('ROI = %.2f X %.2f mm^2',res*10,res*10);
+%         str{2} = sprintf('ROI = 1 mm^2');
+%         legend(str,'Location','northeast');
+% 
+%         [dose(:) sd2(:)./dose(:)*100]
+%         
+%         subplot(1,2,2);
+% %         plot(r(:),sr1(:)./r(:)*100,'k',r(:),sr2(:)./r(:)*100,'r',r(:),sr(:)./r(:)*100,'b','linewidth',2);
+%         plot(r(:),sr1(:)./r(:)*100,'--k',r(:),sr2(:)./r(:)*100,'k','linewidth',2);
+%         set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
+%         xlabel('DI ratio');
+%         ylabel('Type A uncertainy on DI ratio (%)');
+%         title(fct_addbackslash(ifilename));
+%         set(gca,'Ylim',[0 5],'Xlim',[0 max(r)]);
+%         grid on;
+%         str{1} = sprintf('ROI = %.2f X %.2f mm^2',res*10,res*10);
+%         str{2} = sprintf('ROI = 1 mm^2');
+%         legend(str,'Location','northeast');
+%         
+%         [r(:) sr2(:)./r(:)*100]
+%     else
         file = fopen(filename,'r');
-        [DOSE,XI,sXI,c,V,res,sximesh] = fct_ReadCalFileMulti(file);
-        fclose(file);       
-        npix = floor(0.1/handles.CCDres^2);
-        dose = 10:10:max(DOSE);
-        G = [dose(:).^0 dose(:).^1];
-        xi = G*c;
-        sd1 = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,sximesh.npix0,dose);
-        sd2 = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,npix,dose);
-
-        k = find((sd2(:)./dose(:))==min(sd2./dose(:)));
-        r = 0.1:0.01:2;
-        sr1 = fct_UncertaintyMultichannelSingleMeasRel(c,V,sximesh,sximesh.npix0,dose(k),sximesh.npix0,r(:).*dose(k));
-        sr2 = fct_UncertaintyMultichannelSingleMeasRel(c,V,sximesh,npix,dose(k),npix,r(:).*dose(k));
-        
-        figure;
-        subplot(1,2,1)
-        plot(dose(:),sd1(:)./dose(:)*100,'--k',dose(:),sd2(:)./dose(:)*100,'k','linewidth',2);
-        set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
-        xlabel('DI');
-        ylabel('Type A uncertainty on DI (%)');
-        title(fct_addbackslash(ifilename));
-        set(gca,'Ylim',[0 5],'Xlim',[0 max(DOSE)]);
-        grid on;
-        str{1} = sprintf('ROI = %.2f X %.2f mm^2',res*10,res*10);
-        str{2} = sprintf('ROI = 1 mm^2');
-        legend(str,'Location','northeast');
-
-        [dose(:) sd2(:)./dose(:)*100]
-        
-        subplot(1,2,2);
-%         plot(r(:),sr1(:)./r(:)*100,'k',r(:),sr2(:)./r(:)*100,'r',r(:),sr(:)./r(:)*100,'b','linewidth',2);
-        plot(r(:),sr1(:)./r(:)*100,'--k',r(:),sr2(:)./r(:)*100,'k','linewidth',2);
-        set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
-        xlabel('DI ratio');
-        ylabel('Type A uncertainy on DI ratio (%)');
-        title(fct_addbackslash(ifilename));
-        set(gca,'Ylim',[0 5],'Xlim',[0 max(r)]);
-        grid on;
-        str{1} = sprintf('ROI = %.2f X %.2f mm^2',res*10,res*10);
-        str{2} = sprintf('ROI = 1 mm^2');
-        legend(str,'Location','northeast');
-        
-        [r(:) sr2(:)./r(:)*100]
-    else
-        file = fopen(filename,'r');
+        %HB 19 jan 2021: to be updated
         [DOSE,OD,M,type,sigparam,Npix] = fct_readcalfile(file);
         fclose(file);
 
@@ -3396,7 +3445,7 @@ if ~strcmp(class(ifilename),'double')
         title(fct_addbackslash(ifilename));
         set(gca,'Ylim',[0 5],'Xlim',[0 max(r)]);
         grid on;
-    end    
+%     end    
     
 end
 
@@ -3417,49 +3466,50 @@ function VARANALYSIS_REPEATED_Callback(hObject, eventdata, handles)
 if ~strcmp(class(ifilename),'double')
     
     filename = fct_makecleanfilename(ipathname,ifilename);
-    if 0%strcmp(handles.defaultcolor,'Multi')
+%     if 0%strcmp(handles.defaultcolor,'Multi')
+%         file = fopen(filename,'r');
+%         [DOSE,XI,sXI,c,V,res,sximesh] = fct_ReadCalFileMulti(file);
+%         fclose(file);
+% 
+%         npix = floor(0.1/handles.CCDres^2);
+%         dose = 10:10:max(DOSE);
+%         G = [dose(:).^0 dose(:).^1];
+%         xi = G*c;
+%         sd1 = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,sximesh.npix0,dose);
+%         sd2 = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,npix,dose);
+% 
+%         k = find((sd2(:)./dose(:))==min(sd2./dose(:)));
+%                        
+%         N = 10;
+%         sdose = zeros(N,1);
+%         sr = zeros(N,1);
+%         for i=1:N
+%             sdose(i) = fct_UncertaintyMultichannelMultipleMeas(c,V,sximesh,npix,dose(k),i);
+%             sr(i) = fct_UncertaintyMultichannelMultipleMeasRel(c,V,res,sximesh,dose(k),npix,dose(k),npix,i);
+%         end
+%         
+%         figure;
+%         subplot(1,2,1);
+%         semilogx((1:N)',sdose(:)./dose(k)*100,'k','linewidth',2);
+%         set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
+%         xlabel('Number of measurements');
+%         ylabel('Type A uncertainty on DI (%)');
+%         title(fct_addbackslash(ifilename));
+%         set(gca,'Ylim',[0 max(sdose(:)./dose(k))*100*1.1],'Xlim',[1 N]);
+%         grid on;
+% 
+%         subplot(1,2,2);
+%         semilogx((1:N)',sr*100,'k','linewidth',2);
+%         set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
+%         xlabel('Number of measurements');
+%         ylabel('Type A uncertainty on DI ratio (%)');
+%         title(fct_addbackslash(ifilename));
+%         set(gca,'Ylim',[0 max(sr)*100*1.1],'Xlim',[1 N]);
+%         grid on;
+% 
+%     else
         file = fopen(filename,'r');
-        [DOSE,XI,sXI,c,V,res,sximesh] = fct_ReadCalFileMulti(file);
-        fclose(file);
-
-        npix = floor(0.1/handles.CCDres^2);
-        dose = 10:10:max(DOSE);
-        G = [dose(:).^0 dose(:).^1];
-        xi = G*c;
-        sd1 = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,sximesh.npix0,dose);
-        sd2 = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,npix,dose);
-
-        k = find((sd2(:)./dose(:))==min(sd2./dose(:)));
-                       
-        N = 10;
-        sdose = zeros(N,1);
-        sr = zeros(N,1);
-        for i=1:N
-            sdose(i) = fct_UncertaintyMultichannelMultipleMeas(c,V,sximesh,npix,dose(k),i);
-            sr(i) = fct_UncertaintyMultichannelMultipleMeasRel(c,V,res,sximesh,dose(k),npix,dose(k),npix,i);
-        end
-        
-        figure;
-        subplot(1,2,1);
-        semilogx((1:N)',sdose(:)./dose(k)*100,'k','linewidth',2);
-        set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
-        xlabel('Number of measurements');
-        ylabel('Type A uncertainty on DI (%)');
-        title(fct_addbackslash(ifilename));
-        set(gca,'Ylim',[0 max(sdose(:)./dose(k))*100*1.1],'Xlim',[1 N]);
-        grid on;
-
-        subplot(1,2,2);
-        semilogx((1:N)',sr*100,'k','linewidth',2);
-        set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
-        xlabel('Number of measurements');
-        ylabel('Type A uncertainty on DI ratio (%)');
-        title(fct_addbackslash(ifilename));
-        set(gca,'Ylim',[0 max(sr)*100*1.1],'Xlim',[1 N]);
-        grid on;
-
-    else
-        file = fopen(filename,'r');
+        %HB 19 jan 2021: to be updated
         [DOSE,OD,M,type,sigparam,Npix] = fct_readcalfile(file);
         fclose(file);
 
@@ -3514,7 +3564,7 @@ if ~strcmp(class(ifilename),'double')
         title(fct_addbackslash(ifilename));
         set(gca,'Ylim',[0 max(SR)*100*1.1],'Xlim',[1 N]);
         grid on;
-    end
+%     end
     
 end
 
@@ -3537,16 +3587,16 @@ if ~strcmp(class(ifilename),'double')
     
     filename = fct_makecleanfilename(ipathname,ifilename);
     file = fopen(filename,'r');
-        if 0%strcmp(handles.defaultcolor,'Multi')
-            file = fopen(filename,'r');
-            [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
-            fclose(file);
-
-            figure;
-            mesh(sximesh.x,sximesh.y,sximesh.z);
-            xlabel('sqrt(N_0/N_1)');
-            ylabel('xi');
-            zlabel('sxi');
+%         if 0%strcmp(handles.defaultcolor,'Multi')
+%             file = fopen(filename,'r');
+%             [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
+%             fclose(file);
+% 
+%             figure;
+%             mesh(sximesh.x,sximesh.y,sximesh.z);
+%             xlabel('sqrt(N_0/N_1)');
+%             ylabel('xi');
+%             zlabel('sxi');
 
 %             dose = 1:1:max(DOSE);
 %             sd = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,sximesh.npix0,dose);
@@ -3581,7 +3631,8 @@ if ~strcmp(class(ifilename),'double')
 %             grid on;
 %             title(fct_addbackslash((ifilename))); 
 %             
-        else
+%         else
+            %HB 19 jan 2021: to be updated
             [DOSE,OD,M,opt,sigparam,Npix] = fct_readcalfile(file);
             fclose(file);
             [p,sy,R,df] = fct_lsf(DOSE,OD,M,opt);
@@ -3597,7 +3648,7 @@ if ~strcmp(class(ifilename),'double')
             set(gca,'Xlim',[min(ROI) max(ROI)],'Ylim',[0 max(s)*1.1]);
             grid on;
             title(fct_addbackslash((ifilename)));
-        end
+%         end
 end
 
 
@@ -3619,43 +3670,44 @@ if ~strcmp(class(ifilename),'double')
 
     filename = fct_makecleanfilename(ipathname,ifilename);
     file = fopen(filename,'r');
-     if 0%strcmp(handles.defaultcolor,'Multi')
-        file = fopen(filename,'r');
-        [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
-        fclose(file);
-
-        npix = floor(1/handles.CCDres^2);
-        G = [DOSE(:).^0 DOSE(:).^1];
-        xi = G*c;
-        sxihat = fct_GetsXI(sximesh,npix,XI);
-        dose = (XI -c(1))/c(2);
-        sdose = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,npix,dose);
-        
-        DOSE = DOSE(:)
-        dose = dose(:)
-%         [DOSE (dose-DOSE)./DOSE*100 sdose./DOSE*100]
-        k = find(DOSE~=0);
-
-        xisymb = char(958);
-        figure;
-        subplot(1,2,1);
-        errorbar(DOSE(k), (dose(k)-DOSE(k))./DOSE(k)*100,2* sdose(k)./DOSE(k)*100,'ko','Linewidth',2);
-        ylabel('Error (%)','Fontweight','Bold','Fontsize',12,'Fontname','Times New Roman');
-        xlabel('DI','Fontweight','Bold','Fontsize',12,'Fontname','Times New Roman');
-%         set(gca,'Xlim',[0 max(DOSE)+min(DOSE)]);
-        grid on;
-        title(fct_addbackslash(ifilename));
-        legend('Calibration (k=2)','Location','northeast');
-        
-        subplot(1,2,2);
-        errorbar(xi, xi-XI, 2*sxihat,'ko','Linewidth',2);
-        ylabel('Error','Fontweight','Bold','Fontsize',12,'Fontname','Times New Roman');
-        xlabel(xisymb,'Fontweight','Bold','Fontsize',12,'Fontname','Times New Roman');
-        set(gca,'Xlim',[-0.1*max(xi) max(xi)*1.1]);
-        grid on;
-        title(fct_addbackslash(ifilename));
-        legend('Calibration (k=2)','Location','northwest');
-     else
+%      if 0%strcmp(handles.defaultcolor,'Multi')
+%         file = fopen(filename,'r');
+%         [DOSE,XI,sXI,c,V,rescal,sximesh] = fct_ReadCalFileMulti(file);
+%         fclose(file);
+% 
+%         npix = floor(1/handles.CCDres^2);
+%         G = [DOSE(:).^0 DOSE(:).^1];
+%         xi = G*c;
+%         sxihat = fct_GetsXI(sximesh,npix,XI);
+%         dose = (XI -c(1))/c(2);
+%         sdose = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,npix,dose);
+%         
+%         DOSE = DOSE(:)
+%         dose = dose(:)
+% %         [DOSE (dose-DOSE)./DOSE*100 sdose./DOSE*100]
+%         k = find(DOSE~=0);
+% 
+%         xisymb = char(958);
+%         figure;
+%         subplot(1,2,1);
+%         errorbar(DOSE(k), (dose(k)-DOSE(k))./DOSE(k)*100,2* sdose(k)./DOSE(k)*100,'ko','Linewidth',2);
+%         ylabel('Error (%)','Fontweight','Bold','Fontsize',12,'Fontname','Times New Roman');
+%         xlabel('DI','Fontweight','Bold','Fontsize',12,'Fontname','Times New Roman');
+% %         set(gca,'Xlim',[0 max(DOSE)+min(DOSE)]);
+%         grid on;
+%         title(fct_addbackslash(ifilename));
+%         legend('Calibration (k=2)','Location','northeast');
+%         
+%         subplot(1,2,2);
+%         errorbar(xi, xi-XI, 2*sxihat,'ko','Linewidth',2);
+%         ylabel('Error','Fontweight','Bold','Fontsize',12,'Fontname','Times New Roman');
+%         xlabel(xisymb,'Fontweight','Bold','Fontsize',12,'Fontname','Times New Roman');
+%         set(gca,'Xlim',[-0.1*max(xi) max(xi)*1.1]);
+%         grid on;
+%         title(fct_addbackslash(ifilename));
+%         legend('Calibration (k=2)','Location','northwest');
+%      else
+        %HB 19 jan 2021: to be updated
         [DOSE,OD,M,opt,sigparam,Npix] = fct_readcalfile(file);
         fclose(file);
         [odi,dosei] = fct_getcalcurvepoints(DOSE,OD,M,opt);
@@ -3695,7 +3747,7 @@ if ~strcmp(class(ifilename),'double')
         set(gca,'Xlim',[-0.1*max(ODfit) max(ODfit)*1.1]);
         grid on;
         title(fct_addbackslash(ifilename));
-     end
+%      end
 end
 
 % --------------------------------------------------------------------

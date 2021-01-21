@@ -151,6 +151,15 @@ end
 %% Calibration
 if flag ~=-1
     
+    button = questdlg('Do you want a black-and-white only LUT?','B&W','Yes','No','No') ;
+    if strcmp(button,'Yes')
+        smin = ones(3,1)*mean(smin);
+        smax = ones(3,1)*mean(smax);
+        mux = mean([mux(:) muy(:) muz(:)],2);
+        muy = mux;
+        muz = muy;
+    end
+    
     calorder = 4;
 
     x = (mux-smin(1))/(smax(1)-smin(1));

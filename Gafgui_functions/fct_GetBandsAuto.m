@@ -27,8 +27,8 @@ function [posx,posy,rmat,bmat,gmat,res,nbbands,stackdir,bits,posxk,posyk,rawimsi
 % handles = fct_initGafgui();
 
 %%%%%%%%%%%%%%%%%%%%%%%
-button = questdlg('Do you want to use a single film or several films?','Type','Single','Several','Single') ;
-% button = 'Single';
+% button = questdlg('Do you want to use a single film or several films?','Type','Single','Several','Single') ;
+button = 'Single';
 flag = -1;
 if strcmp(button,'Single')
     [ifilename,ipathname]=uigetfile({'*.tif'},'Choose the correction band scan');

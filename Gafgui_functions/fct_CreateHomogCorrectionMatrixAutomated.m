@@ -178,7 +178,7 @@ if flag~=-1
     unconfirmed = 1;
     while unconfirmed
         % HB 11 March 2020: here the user can choose    
-        orderR = 0; orderG = 0; orderB = 0;
+        orderR = -1; orderG = -1; orderB = -1;
         flag = 1;
         clear tmp;
 %         while (orderR<1||orderR>6)&&(orderG<1||orderG>6)&&(orderB<1||orderB>6)&&flag==1
@@ -187,10 +187,10 @@ if flag~=-1
 %             tmp{3} = 'Order of fit in position for BLUE (1-5)';
 %             answer = inputdlg(tmp,'Input',[1 1 1],{'5','4','4'});
         %28 July 2020: I make sure it is symmetric
-        while (orderR<1||orderR>6)&&(orderG<1||orderG>6)&&(orderB<1||orderB>6)&&(mod(orderR,2)==0||mod(orderG,2)==0||mod(orderB,2)==0)&&flag==1
-            tmp{1} = 'Order of fit in position for RED (2,4 or 6)';
-            tmp{2} = 'Order of fit in position for GREEN (2,4 or 6)';
-            tmp{3} = 'Order of fit in position for BLUE (2,4 or 6)';
+        while (orderR<0||orderR>6)||(orderG<0||orderG>6)||(orderB<0||orderB>6) || (mod(orderR,2)~=0||mod(orderG,2)~=0||mod(orderB,2)~=0) && (flag==1)
+            tmp{1} = 'Order of fit in position for RED (0,2,4 or 6)';
+            tmp{2} = 'Order of fit in position for GREEN (0,2,4 or 6)';
+            tmp{3} = 'Order of fit in position for BLUE (0,2,4 or 6)';
             answer = inputdlg(tmp,'Input',[1 1 1],{'4','2','2'});
             if numel(answer)==0
                 flag = 0;

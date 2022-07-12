@@ -92,8 +92,8 @@ if isfield(handles, 'menus')
             set(handles.menus.CALCURVE_CREATE, 'Enable', fct_LogicToSwitch(fct_isthereanimage(handles)~=1));
             set(handles.menus.CALCURVE_VISUALIZE, 'Enable', 'on');    
     %Menu7 (Variance analysis): this should remain on at all times
-%     set(handles.menus.MENU_VARANALYSIS, 'Enable', 'on');
-    set(handles.menus.MENU_VARANALYSIS, 'Enable', 'off');%I am switching this off temporarily 20 jan 2021 
+    set(handles.menus.MENU_VARANALYSIS, 'Enable', 'on');%11 July 2022
+    %set(handles.menus.MENU_VARANALYSIS, 'Enable', 'off');%I am switching this off temporarily 20 jan 2021 
         set(handles.menus.VARANALYSIS_SINGLE, 'Enable', 'on');
         set(handles.menus.VARANALYSIS_REPEATED, 'Enable', 'on');
         set(handles.menus.VARANALYSIS_UNCERT_ROI, 'Enable', 'on');

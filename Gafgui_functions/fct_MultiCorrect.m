@@ -43,7 +43,7 @@ if flag == 2
         fname = fct_makecleanfilename(opathname,ofilename);
         %new method
         
-        [Rot,rrange,grange,brange,trange,err]  = fct_ReadMultiCorrection(fname);
+        [Rot,rrange,grange,brange,trange,znorm,err]  = fct_ReadMultiCorrection(fname);
         if err
             errordlg('File not read. Something went wrong.');
         else
@@ -52,14 +52,14 @@ if flag == 2
             clear str;
 
             %button = questdlg('Do you want to filter the thickness correction?','Filter','Yes','No','Yes') ;
-            button = 'No';
+            button = 'Yes';
             if strcmp(button,'Yes')
                 filterimage = 1;
             else
                 filterimage = 0;
             end
             if filterimage
-                kconv = max(1,floor(0.1/delta));
+                kconv = max(1,floor(0.1/delta));%1 cm
                 kconv = 2*floor(kconv/2)+1;
             else
                 kconv = 1;
@@ -74,29 +74,47 @@ if flag == 2
             G = double(IMAGE(:,:,2));
             B = double(IMAGE(:,:,3)); 
             FLAG = ones(size(R,1),size(R,2));
-            FLAG = FLAG.*double(logical(R>=rrange(1))).*double(logical(R<=rrange(2)));
-            FLAG = FLAG.*double(logical(G>=grange(1))).*double(logical(G<=grange(2)));
-            FLAG = FLAG.*double(logical(B>=brange(1))).*double(logical(B<=brange(2)));
-            
+            %HB: 11 July 2022: bug fix to assure we can use film for which OD values are too close to range ends 
+            %FLAG = FLAG.*double(logical(R>=rrange(1))).*double(logical(R<=rrange(2)));
+            %FLAG = FLAG.*double(logical(G>=grange(1))).*double(logical(G<=grange(2)));
+            %FLAG = FLAG.*double(logical(B>=brange(1))).*double(logical(B<=brange(2)));
+            %HB: the trick is to reduce the distance of limits from 0 and 65535 by half
+            SMIN = min([rrange(:)' grange(:)' brange(:)']);
+            SMAX = max([rrange(:)' grange(:)' brange(:)']);
+            SMIN = floor(SMIN - SMIN/2);
+            SMAX = ceil(SMAX + (65635-SMAX)/2);
+            FLAG = FLAG.*double(logical(R>=SMIN)).*double(logical(R<=SMAX));
+            FLAG = FLAG.*double(logical(G>=SMIN)).*double(logical(G<=SMAX));
+            FLAG = FLAG.*double(logical(B>=SMIN)).*double(logical(B<=SMAX));
             %now the OD
             R = -log10(double(IMAGE(:,:,1))/65535); 
             G = -log10(double(IMAGE(:,:,2))/65535);  
             B = -log10(double(IMAGE(:,:,3))/65535);
-
+            %the eigencolors
             X = Rot(1,1)*R + Rot(1,2)*G + Rot(1,3)*B; 
             Z = Rot(3,1)*R + Rot(3,2)*G + Rot(3,3)*B; 
-
+            %convolution of EC3 with a small filter whilst EC1 remain exact
             X = conv2(X,dummy,'valid');
             Z = conv2(Z,filter,'valid');
-            Z = Z/mean(Z(:));
+            FLAG = conv2(FLAG,dummy,'valid');
+            S = conv2(R,dummy,'valid');
+            %Bug William 11 juillet 2022??
+            %Z = Z/mean(Z(:));%HB says: OH MY GOD NO!
+            %HB 11 July 2022: this is crucial because we need to keep theta
+            %within the range as we save the image into tiff format, hence use
+            %I = 65535*10.^(-THETA). One alternative would be to ask the
+            %user to select a piece of film (exempt of marks or tape) and take the average EC3 for
+            %normalization. Until then, we pass the normalization information from the characterization of the correction 
+            Z = Z/znorm;
             %we want to avoid Z=0
             [lin,col] = size(Z);
             Z = reshape(Z,lin*col,1);
             Z(find(Z==0)) = 1;
             Z = reshape(Z,lin,col);
             THETA = X./Z;
-            FLAG = FLAG.*double(logical(THETA>=trange(1))).*double(logical(THETA<=trange(2)));
-            IMG = uint16(FLAG.*(65535*10.^(-THETA)) + (1-FLAG).*(65535*10.^(-R)));
+            %Bug William 11 juillet 2022??
+            %FLAG = FLAG.*double(logical(THETA>=trange(1))).*double(logical(THETA<=trange(2)));
+            IMG = uint16(FLAG.*(65535*10.^(-THETA)) + (1-FLAG).*(65535*10.^(-S)));
             %
             if 0%to show the difference between corrected and uncorrected
                 defaultname = sprintf('%s_raw.tif',ifilename(1:(length(ifilename)-4)));

@@ -48,7 +48,7 @@ function varargout = Gafgui(varargin)
 
 % Edit the above text to modify the response to help Gafgui
 
-% Last Modified by GUIDE v2.5 20-Jan-2021 21:24:22
+% Last Modified by GUIDE v2.5 12-Jul-2022 00:17:52
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -2135,8 +2135,28 @@ else
         close(h);
         IMAGE = double(IMAGE) / N;
         %rotate or flip image
-        flg = 0;%this is to skip the following while loop
+        flg = 1;%this is to skip the following while loop
         while flg
+            figure('NumberTitle','off','Name','Averaged image');
+            h = fct_display(uint16(IMAGE),round(2.54/Resolution));
+            ans = questdlg('Do you want to flip the image horizontally?','Image','Left-right','Up-down','No','No') ;
+            if strcmp(ans,'Left-right')
+                tIMAGE(:,:,1) = fliplr(IMAGE(:,:,1));
+                tIMAGE(:,:,2) = fliplr(IMAGE(:,:,2));
+                tIMAGE(:,:,3) = fliplr(IMAGE(:,:,3));
+                IMAGE = tIMAGE; clear tIMAGE;
+                close(h);figure('NumberTitle','off','Name','Averaged image');
+                h = fct_display(uint16(IMAGE),round(2.54/Resolution));
+            elseif strcmp(ans,'Up-down')
+                tIMAGE(:,:,1) = flipud(IMAGE(:,:,1));
+                tIMAGE(:,:,2) = flipud(IMAGE(:,:,2));
+                tIMAGE(:,:,3) = flipud(IMAGE(:,:,3));
+                IMAGE = tIMAGE; clear tIMAGE;
+                close(h);figure('NumberTitle','off','Name','Averaged image');
+                h = fct_display(uint16(IMAGE),round(2.54/Resolution));
+            end            
+            close(h);
+            %
             figure('NumberTitle','off','Name','Averaged image');
             h = fct_display(uint16(IMAGE),round(2.54/Resolution));
             ans = questdlg('Do you want to rotate the image?','Image','90 left','90 right','No','No') ;
@@ -2151,24 +2171,6 @@ else
                 tIMAGE(:,:,1) = flipud(IMAGE(:,:,1)');
                 tIMAGE(:,:,2) = flipud(IMAGE(:,:,2)');
                 tIMAGE(:,:,3) = flipud(IMAGE(:,:,3)');
-                IMAGE = tIMAGE; clear tIMAGE;
-                close(h);figure('NumberTitle','off','Name','Averaged image');
-                h = fct_display(uint16(IMAGE),round(2.54/Resolution));
-            end
-            close(h);figure('NumberTitle','off','Name','Averaged image');
-            h = fct_display(uint16(IMAGE),round(2.54/Resolution));
-            ans = questdlg('Do you want to flip the image horizontally?','Image','Left-right','Up-down','No','No') ;
-            if strcmp(ans,'Left-right')
-                tIMAGE(:,:,1) = fliplr(IMAGE(:,:,1));
-                tIMAGE(:,:,2) = fliplr(IMAGE(:,:,2));
-                tIMAGE(:,:,3) = fliplr(IMAGE(:,:,3));
-                IMAGE = tIMAGE; clear tIMAGE;
-                close(h);figure('NumberTitle','off','Name','Averaged image');
-                h = fct_display(uint16(IMAGE),round(2.54/Resolution));
-            elseif strcmp(ans,'Up-down')
-                tIMAGE(:,:,1) = flipud(IMAGE(:,:,1));
-                tIMAGE(:,:,2) = flipud(IMAGE(:,:,2));
-                tIMAGE(:,:,3) = flipud(IMAGE(:,:,3));
                 IMAGE = tIMAGE; clear tIMAGE;
                 close(h);figure('NumberTitle','off','Name','Averaged image');
                 h = fct_display(uint16(IMAGE),round(2.54/Resolution));
@@ -3926,4 +3928,3 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %Functions are (now) outside Gafgui in Gafgui_functions folder
-

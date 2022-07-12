@@ -1,5 +1,5 @@
 % --------------------------------------------------------------------
-function [Rot,rrange,grange,brange,trange,err]  = fct_ReadMultiCorrection(fname)
+function [Rot,rrange,grange,brange,trange,znorm,err]  = fct_ReadMultiCorrection(fname)
 
 %LUT is a struct with fields rcorr, gcorr and bcorr; 
 %the index equals raw signal+1 
@@ -15,6 +15,7 @@ rrange = A(4,1:2);
 grange = A(5,1:2);
 brange = A(6,1:2);
 trange = A(7,1:2);
+znorm = A(7,3);
 [lin,col] = size(Rot);
 %
 if (size(A,1)==7)&&(size(A,2)==3)

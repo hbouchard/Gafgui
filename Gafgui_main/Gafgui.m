@@ -3358,98 +3358,181 @@ function VARANALYSIS_SINGLE_Callback(hObject, eventdata, handles)
 [ifilename,ipathname] = uigetfile({'*.cal'},'Choose calibration curve');
 
 if ~strcmp(class(ifilename),'double')
-    
+
     filename = fct_makecleanfilename(ipathname,ifilename);
-%     if 0%strcmp(handles.defaultcolor,'Multi')
-%         file = fopen(filename,'r');
-%         [DOSE,XI,sXI,c,V,res,sximesh] = fct_ReadCalFileMulti(file);
-%         fclose(file);       
-%         npix = floor(0.1/handles.CCDres^2);
-%         dose = 10:10:max(DOSE);
-%         G = [dose(:).^0 dose(:).^1];
-%         xi = G*c;
-%         sd1 = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,sximesh.npix0,dose);
-%         sd2 = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,npix,dose);
+    %     if 0%strcmp(handles.defaultcolor,'Multi')
+    %         file = fopen(filename,'r');
+    %         [DOSE,XI,sXI,c,V,res,sximesh] = fct_ReadCalFileMulti(file);
+    %         fclose(file);
+    %         npix = floor(0.1/handles.CCDres^2);
+    %         dose = 10:10:max(DOSE);
+    %         G = [dose(:).^0 dose(:).^1];
+    %         xi = G*c;
+    %         sd1 = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,sximesh.npix0,dose);
+    %         sd2 = fct_UncertaintyMultichannelSingleMeas(c,V,sximesh,npix,dose);
+    %
+    %         k = find((sd2(:)./dose(:))==min(sd2./dose(:)));
+    %         r = 0.1:0.01:2;
+    %         sr1 = fct_UncertaintyMultichannelSingleMeasRel(c,V,sximesh,sximesh.npix0,dose(k),sximesh.npix0,r(:).*dose(k));
+    %         sr2 = fct_UncertaintyMultichannelSingleMeasRel(c,V,sximesh,npix,dose(k),npix,r(:).*dose(k));
+    %
+    %         figure;
+    %         subplot(1,2,1)
+    %         plot(dose(:),sd1(:)./dose(:)*100,'--k',dose(:),sd2(:)./dose(:)*100,'k','linewidth',2);
+    %         set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
+    %         xlabel('DI');
+    %         ylabel('Type A uncertainty on DI (%)');
+    %         title(fct_addbackslash(ifilename));
+    %         set(gca,'Ylim',[0 5],'Xlim',[0 max(DOSE)]);
+    %         grid on;
+    %         str{1} = sprintf('ROI = %.2f X %.2f mm^2',res*10,res*10);
+    %         str{2} = sprintf('ROI = 1 mm^2');
+    %         legend(str,'Location','northeast');
+    %
+    %         [dose(:) sd2(:)./dose(:)*100]
+    %
+    %         subplot(1,2,2);
+    % %         plot(r(:),sr1(:)./r(:)*100,'k',r(:),sr2(:)./r(:)*100,'r',r(:),sr(:)./r(:)*100,'b','linewidth',2);
+    %         plot(r(:),sr1(:)./r(:)*100,'--k',r(:),sr2(:)./r(:)*100,'k','linewidth',2);
+    %         set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
+    %         xlabel('DI ratio');
+    %         ylabel('Type A uncertainy on DI ratio (%)');
+    %         title(fct_addbackslash(ifilename));
+    %         set(gca,'Ylim',[0 5],'Xlim',[0 max(r)]);
+    %         grid on;
+    %         str{1} = sprintf('ROI = %.2f X %.2f mm^2',res*10,res*10);
+    %         str{2} = sprintf('ROI = 1 mm^2');
+    %         legend(str,'Location','northeast');
+    %
+    %         [r(:) sr2(:)./r(:)*100]
+    %     else
+    file = fopen(filename,'r');
+
+    %WB 22 july 2022: Need to use fct_ReadCalFileMulti here and not
+    %fct_readcalfile
+    [DOSE,nTHETA,sTHETA,THETA0,Npix,res,channel,opt,M] = fct_ReadCalFileMulti(file);
+    fclose(file);
+
+    dose= 10:10:max(DOSE);
+
+    % Absolute
+    [V1, V2] = fct_getcovarmatrix(dose,Npix,Npix,filename,1);
+    sd1 = sqrt(diag(V1))./dose(:);
+    sd2 = sqrt(diag(V2))./dose(:);
+
+    figure;
+    plot(dose(:),sd1(:)*100,'k','linewidth',2);
+    set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
+    xlabel('Dose (CMU)');
+    ylabel('Relative uncertainty (%) (abs & rule 1)');
+    title(fct_addbackslash(ifilename));
+    set(gca,'Ylim',[0 5],'Xlim',[0 max(DOSE)]);
+    grid on;
+
+    fprintf('Absolute & Rule 1 & Single & %i pix & %.1f-%.1f\n',...
+        Npix(1), ...
+        100*min(sd1(intersect(find(dose>200),find(dose<800)))),100* max(sd1(intersect(find(dose>200),find(dose<800)))));
+
+    figure;
+    plot(dose(:),sd2(:)*100,'k','linewidth',2);
+    set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
+    xlabel('Dose (CMU)');
+    ylabel('Relative uncertainty (%) (abs & rule 2');
+    title(fct_addbackslash(ifilename));
+    set(gca,'Ylim',[0 5],'Xlim',[0 max(DOSE)]);
+    grid on;
+
+    fprintf('Absolute & Rule 2 & Single & %i pix & %.1f-%.1f\n',...
+        Npix(1), ...
+        100*min(sd2(intersect(find(dose>200),find(dose<800)))),100* max(sd2(intersect(find(dose>200),find(dose<800)))));
+
+    % Find normalization dose value
+    k= find((sd1(:))==min(sd1(:))); % smallest uncertainty
+    dosenorm = dose(k);
+    fprintf('Dosenorm = %.1f\n', dosenorm)
+    Npixnorm = 100;
+    r = dose/dosenorm;
+
+    % Relative
+    [V1, V2] = fct_getcovarmatrix(dose,Npix,Npix,filename,1, dosenorm, Npixnorm);
+    sr1  = sqrt(diag(V1(1:end-1,1:end-1))./dose(:).^2  + V1(end,end)./dosenorm.^2  - 2*V1(1:end-1,end)./dose(:)/dosenorm);
+    sr2  = sqrt(diag(V2(1:end-1,1:end-1))./dose(:).^2  + V2(end,end)./dosenorm.^2  - 2*V2(1:end-1,end)./dose(:)/dosenorm);
+
+
+    figure;
+    plot(r,sr1(:)*100,'k','linewidth',2);
+    set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
+    xlabel('Dose ratio');
+    ylabel('Relative uncertainty (%) (rel & rule 1');
+    title(fct_addbackslash(ifilename));
+    set(gca,'Ylim',[0 5],'Xlim',[0 max(r)]);
+    grid on;
+
+
+    fprintf('Relative & Rule 1 & Single & %i pix & %i normpix & %.1f-%.1f\n',...
+        Npix(1), ...
+        Npixnorm, ...
+        100*min(sr1(intersect(find(dose>200),find(dose<800)))),100* max(sr1(intersect(find(dose>200),find(dose<800)))));
+
+    figure;
+    plot(r,sr2(:)*100,'k','linewidth',2);
+    set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
+    xlabel('Dose ratio');
+    ylabel('Relative uncertainty (%) (rel & rule 2');
+    title(fct_addbackslash(ifilename));
+    set(gca,'Ylim',[0 5],'Xlim',[0 max(r)]);
+    grid on;
+
+
+    fprintf('Relative & Rule 2 & Single & %i pix & %i normpix & %.1f-%.1f\n',...
+        Npix(1), ...
+        Npixnorm, ...
+        100*min(sr2(intersect(find(dose>200),find(dose<800)))),100* max(sr2(intersect(find(dose>200),find(dose<800)))));
+end
+
+%         %HB 19 jan 2021: to be updated
+%         [DOSE,OD,M,type,sigparam,Npix] = fct_readcalfile(file);
+%         fclose(file);
 % 
-%         k = find((sd2(:)./dose(:))==min(sd2./dose(:)));
-%         r = 0.1:0.01:2;
-%         sr1 = fct_UncertaintyMultichannelSingleMeasRel(c,V,sximesh,sximesh.npix0,dose(k),sximesh.npix0,r(:).*dose(k));
-%         sr2 = fct_UncertaintyMultichannelSingleMeasRel(c,V,sximesh,npix,dose(k),npix,r(:).*dose(k));
-%         
+%         dose= 10:10:max(DOSE);
+%         V = fct_getcovarmatrix(dose,Npix(1),Npix(2),filename);
+%         sd = sqrt(diag(V));
+% 
 %         figure;
-%         subplot(1,2,1)
-%         plot(dose(:),sd1(:)./dose(:)*100,'--k',dose(:),sd2(:)./dose(:)*100,'k','linewidth',2);
+%         plot(dose(:),sd(:)./dose(:)*100,'k','linewidth',2);
 %         set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
-%         xlabel('DI');
-%         ylabel('Type A uncertainty on DI (%)');
+%         xlabel('Dose (CMU)');
+%         ylabel('Relative uncertainty (%)');
 %         title(fct_addbackslash(ifilename));
 %         set(gca,'Ylim',[0 5],'Xlim',[0 max(DOSE)]);
 %         grid on;
-%         str{1} = sprintf('ROI = %.2f X %.2f mm^2',res*10,res*10);
-%         str{2} = sprintf('ROI = 1 mm^2');
-%         legend(str,'Location','northeast');
 % 
-%         [dose(:) sd2(:)./dose(:)*100]
-%         
-%         subplot(1,2,2);
-% %         plot(r(:),sr1(:)./r(:)*100,'k',r(:),sr2(:)./r(:)*100,'r',r(:),sr(:)./r(:)*100,'b','linewidth',2);
-%         plot(r(:),sr1(:)./r(:)*100,'--k',r(:),sr2(:)./r(:)*100,'k','linewidth',2);
+%         [dose(:) sd(:)./dose(:)*100]
+% 
+%         k= find((sd(:)./dose(:))==min(sd(:)./dose(:)));
+% 
+%         dosenorm = dose(k)
+%         r = dose(:)/dosenorm;
+%         sr = r*0;
+%         k = length(dose);
+%         for i=1:k
+%             V = fct_getcovarmatrix([dose(i) dosenorm],Npix(1),Npix(2),filename);
+%             sr(i)    = r(i)*sqrt(V(1,1)/dose(i)^2+V(2,2)/dosenorm^2 - 2*V(1,2)/dose(i)/dosenorm);
+%         end
+% 
+%         [r(:) sr(:)./r(:)*100]
+% 
+%         figure;
+%         plot(r(:),sr(:)./r(:)*100,'k','linewidth',2);
 %         set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
-%         xlabel('DI ratio');
-%         ylabel('Type A uncertainy on DI ratio (%)');
+%         xlabel('Dose ratio');
+%         ylabel('Relative uncertainty (%)');
 %         title(fct_addbackslash(ifilename));
 %         set(gca,'Ylim',[0 5],'Xlim',[0 max(r)]);
 %         grid on;
-%         str{1} = sprintf('ROI = %.2f X %.2f mm^2',res*10,res*10);
-%         str{2} = sprintf('ROI = 1 mm^2');
-%         legend(str,'Location','northeast');
-%         
-%         [r(:) sr2(:)./r(:)*100]
-%     else
-        file = fopen(filename,'r');
-        %HB 19 jan 2021: to be updated
-        [DOSE,OD,M,type,sigparam,Npix] = fct_readcalfile(file);
-        fclose(file);
-
-        dose= 10:10:max(DOSE);
-        V = fct_getcovarmatrix(dose,Npix(1),Npix(2),filename);
-        sd = sqrt(diag(V));
-
-        figure;
-        plot(dose(:),sd(:)./dose(:)*100,'k','linewidth',2);
-        set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
-        xlabel('Dose (CMU)');
-        ylabel('Relative uncertainty (%)');
-        title(fct_addbackslash(ifilename));
-        set(gca,'Ylim',[0 5],'Xlim',[0 max(DOSE)]);
-        grid on;
-
-        [dose(:) sd(:)./dose(:)*100]
-
-        k= find((sd(:)./dose(:))==min(sd(:)./dose(:)));
-
-        dosenorm = dose(k)
-        r = dose(:)/dosenorm;
-        sr = r*0;
-        k = length(dose);
-        for i=1:k
-            V = fct_getcovarmatrix([dose(i) dosenorm],Npix(1),Npix(2),filename);
-            sr(i)    = r(i)*sqrt(V(1,1)/dose(i)^2+V(2,2)/dosenorm^2 - 2*V(1,2)/dose(i)/dosenorm);
-        end
-
-        [r(:) sr(:)./r(:)*100]
-
-        figure;
-        plot(r(:),sr(:)./r(:)*100,'k','linewidth',2);
-        set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
-        xlabel('Dose ratio');
-        ylabel('Relative uncertainty (%)');
-        title(fct_addbackslash(ifilename));
-        set(gca,'Ylim',[0 5],'Xlim',[0 max(r)]);
-        grid on;
-%     end    
-    
-end
+% %     end    
+%     
+% end
 
 % --------------------------------------------------------------------
 function VARANALYSIS_REPEATED_Callback(hObject, eventdata, handles)

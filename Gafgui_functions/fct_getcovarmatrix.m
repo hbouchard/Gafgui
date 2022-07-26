@@ -1,5 +1,5 @@
 % --------------------------------------------------------------------
-function [V1, V2] = fct_getcovarmatrix(dose,Npixappl,Npixbck,filename,single,varargin)
+function [V1, V2] = fct_GetCovarMatrixMulti(dose,Npixappl,Npixbck,filename,single,varargin)
 
 %here Npixappl can be of length 1 or same length of dose
 %length Npixbck must be 1
@@ -20,16 +20,18 @@ N = length(DOSE);
 Vp = (inv(Fcal'*Fcal)*Fcal')*(sycal^2*eye(N,N))*(inv(Fcal'*Fcal)*Fcal')';
 tappl = Fappl*p;
 
-if Npixappl==0
+if Npixappl==0 %WB 2022: to be investigated why this could happen
     vappl = sycal^2; % voir comment choisir V1 et V2 en fonction de ce if la
 else
     l = length(Npixappl);
     if l ==1
         if single == 1
             if isempty(varargin) % absolute
-                Vappl1 = 2*sycal^2+diag(exp(polyval(qT,tappl+t0)).^2./(Npixappl+Npixbck));
-                Vappl2 = diag(2*sycal^2+exp(polyval(qT,tappl+t0)).^2./(Npixappl+Npixbck));
-            elseif length(varargin)==2 % relative
+                % this is for separate irradiations (rule 1)
+                Vappl1 = diag(sycal^2+exp(polyval(qT,tappl+t0)).^2./(Npixappl));
+                % this is for same irradiation (rule 2)
+                Vappl2 = sycal^2+diag(exp(polyval(qT,tappl+t0)).^2./(Npixappl));
+            elseif numel(varargin)==2 % relative
                 norm = varargin{1};
                 Npixnorm = varargin{2};
 
@@ -38,17 +40,18 @@ else
                 dFnorm = fct_dF_matrix(norm,M,type);
                 Fappl = cat(1,Fappl,Fnorm);
                 dFappl = cat(1,dFappl, dFnorm);
-
-                Vappl1 = 2*sycal^2+diag(exp(polyval(qT,tappl+t0)).^2./(Npixappl+Npixbck));
-                %extension
-                Vappl1  = cat(2,cat(1,Vappl1 ,2*sycal^2*ones(1,length(dose))) ,2*sycal^2*ones(length(dose)+1,1));
-                Vappl1(end,end)  = 2*sycal^2 + 2*exp(polyval(qT ,tnorm+t0)).^2./(Npixnorm) ;
-
-                Vappl2 = diag(2*sycal^2+exp(polyval(qT,tappl+t0)).^2./(Npixappl+Npixbck));
-                %extension
-                Vappl2  = cat(2,cat(1,Vappl2 ,zeros(1,length(dose))),zeros(length(dose)+1,1));
-                Vappl2(end,end)  = 2*sycal^2  + 2*exp(polyval(qT ,tnorm+t0)).^2./Npixnorm ;
                 
+                % This is for separate irradiations, as is the normalization (rule 1)
+                Vappl1 = diag(sycal^2+exp(polyval(qT,tappl+t0)).^2./(Npixappl));
+                %extension
+                Vappl1  = cat(2,cat(1,Vappl1 ,zeros(1,length(dose))),zeros(length(dose)+1,1));
+                Vappl1(end,end)  = sycal^2  + exp(polyval(qT ,tnorm+t0)).^2./Npixnorm ;
+                
+                % This is for same irradiation, as is the normalization (rule 2)
+                Vappl2 = sycal^2+diag(exp(polyval(qT,tappl+t0)).^2./(Npixappl));
+                %extension
+                Vappl2  = cat(2,cat(1,Vappl2 ,sycal^2*ones(1,length(dose))) ,sycal^2*ones(length(dose)+1,1));
+                Vappl2(end,end)  = sycal^2 + exp(polyval(qT ,tnorm+t0)).^2./(Npixnorm) ;
             end
         %elseif
         end

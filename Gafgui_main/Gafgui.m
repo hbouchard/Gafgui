@@ -3405,10 +3405,6 @@ if ~strcmp(class(ifilename),'double')
         % Find normalization dose value
 %         k= find((sd1(:))==min(sd1(:))); % smallest uncertainty
 %         dosenorm = dose(k);
-%         dosenorm = max(dose)/2;
-%         fprintf('Dosenorm = %.1f\n', dosenorm)
-%         Npixnorm = 1; %ceil(0.1/res)^2; % 1x1 mm2
-%         r = dose/dosenorm;
 
     elseif strcmp(button, 'Relative') % Relative
         % Normalization dose value
@@ -3602,102 +3598,74 @@ function VARANALYSIS_REPEATED_Callback(hObject, eventdata, handles)
         %     else
         file = fopen(filename,'r');
         
-        %WB 22 july 2022: Need to use fct_ReadCalFileMulti here and not
+            %WB 22 july 2022: Need to use fct_ReadCalFileMulti here and not
         %fct_readcalfile
         [DOSE,nTHETA,sTHETA,THETA0,Npix,res,channel,opt,M] = fct_ReadCalFileMulti(file);
         fclose(file);
-
-        dose= 10:10:max(DOSE);
-
-        % Absolute
-        [V1, V2] = fct_GetCovarMatrixMulti(dose,Npix,Npix,filename,2);
-        sd1 = sqrt(diag(V1))./dose(:);
-        sd2 = sqrt(diag(V2))./dose(:);
-
-        figure;
-        plot(dose(:),sd1(:)*100,'k','linewidth',2);
-        set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
-        xlabel('Dose (CMU)');
-        ylabel('Relative uncertainty (%) (abs & rule 1)');
-        title(fct_addbackslash(ifilename));
-        set(gca,'Ylim',[0 5],'Xlim',[0 max(DOSE)]);
-        grid on;
-
-        fprintf('Absolute & Rule 1 & Single & %i pix & %.1f-%.1f\n',...
-            Npix(1), ...
-            100*min(sd1(intersect(find(dose>200),find(dose<800)))),100* max(sd1(intersect(find(dose>200),find(dose<800)))));
-
-        figure;
-        plot(dose(:),sd2(:)*100,'k','linewidth',2);
-        set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
-        xlabel('Dose (CMU)');
-        ylabel('Relative uncertainty (%) (abs & rule 2');
-        title(fct_addbackslash(ifilename));
-        set(gca,'Ylim',[0 5],'Xlim',[0 max(DOSE)]);
-        grid on;
-
-        fprintf('Absolute & Rule 2 & Single & %i pix & %.1f-%.1f\n',...
-            Npix(1), ...
-            100*min(sd2(intersect(find(dose>200),find(dose<800)))),100* max(sd2(intersect(find(dose>200),find(dose<800)))));
-
-        % Find normalization dose value
-        k= find((sd1(:))==min(sd1(:))); % smallest uncertainty
-        dosenorm = dose(k);
-        dosenorm = max(dose)/2;
-        fprintf('Dosenorm = %.1f\n', dosenorm)
-        Npixnorm = 1; %ceil(0.1/res)^2; % 1x1 mm2
-        r = dose/dosenorm;
-
-        % Relative
-        [V1, V2] = fct_GetCovarMatrixMulti(dose,Npix,Npix,filename,1, dosenorm, Npixnorm);
-        ur1  = sqrt(diag(V1(1:end-1,1:end-1))./dose(:).^2  + V1(end,end)./dosenorm.^2  - 2*V1(1:end-1,end)./dose(:)/dosenorm);
-        ur2  = sqrt(diag(V2(1:end-1,1:end-1))./dose(:).^2  + V2(end,end)./dosenorm.^2  - 2*V2(1:end-1,end)./dose(:)/dosenorm);
-
-
-        figure;
-        plot(r,ur1(:)*100,'k','linewidth',2);
-        set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
-        xlabel('Dose ratio');
-        ylabel('Relative uncertainty (%) (rel & rule 1');
-        title(fct_addbackslash(ifilename));
-        set(gca,'Ylim',[0 5],'Xlim',[0 max(r)]);
-        grid on;
-
-
-        fprintf('Relative & Rule 1 & Single & %i pix & %i normpix & %.1f-%.1f\n',...
-            Npix(1), ...
-            Npixnorm, ...
-            100*min(ur1(intersect(find(dose>200),find(dose<800)))),100* max(ur1(intersect(find(dose>200),find(dose<800)))));
-
-        figure;
-        plot(r,ur2(:)*100,'k','linewidth',2);
-        set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
-        xlabel('Dose ratio');
-        ylabel('Relative uncertainty (%) (rel & rule 2');
-        title(fct_addbackslash(ifilename));
-        set(gca,'Ylim',[0 5],'Xlim',[0 max(r)]);
-        grid on;
-
-
-        fprintf('Relative & Rule 2 & Single & %i pix & %i normpix & %.1f-%.1f\n',...
-            Npix(1), ...
-            Npixnorm, ...
-            100*min(ur2(intersect(find(dose>200),find(dose<800)))),100* max(ur2(intersect(find(dose>200),find(dose<800)))));
-    end
-
-
-
-
+  
+        nreps  = inputdlg({'Number of repeated irradiations:'},'Input',[1 40]);
+        dosechoice = inputdlg({'Dose value (MU):'}, 'Input', [1 40]);
+        if (numel(nreps) || numel(dosechoice)) == 0
+            warning('Wrong inputs please try again')
+        else
+            flag = 1;
+        end
         
-        
-        
-        
-        
-        
-        
-        
-        
+        if flag == 1
+            nreps = str2double(nreps{1});
+            dosechoice = str2double(dosechoice{1});
+            button = questdlg('What kind of variance analysis to do?','Single variance analysis','Absolute','Relative', 'Absolute');
             
+            if strcmp(button,'Absolute') % Absolute
+                uidTabs = zeros(nreps,1);
+                for nrep = 1:nreps           
+                     id = dosechoice*ones(nrep,1);
+                     VdT = fct_GetCovarMatrixMulti(id,Npix,filename,2);
+                     uidTabs(nrep) =  sqrt(sum(sum(VdT)))/mean(id)/nrep;
+                end
+                
+                figure;
+                plot(1:nreps,uidTabs(:)*100,'k','linewidth',2);
+                grid on;
+                xlabel('Number of measurements');
+                ylabel('Dose uncertainty in %');
+                set(gca,'Fontsize',24,'Fontname','Times');
+                xlim([1 nreps]);
+                        
+                fprintf('Absolute & Rule 1 & Repeated (2-%i) & %i pix & %.1f-%.1f\n',...
+                          nreps, ...
+                          Npix, ...
+                          100*min(uidTabs(2:end)),100* max(uidTabs(2:end)));
+                
+        
+            elseif strcmp(button, 'Relative') % Relative
+                % Normalization dose value
+                uidTrel = zeros(nreps,1);
+                for nrep = 1:nreps
+                     id = cat(1,dosechoice*ones(nrep,1),dosechoice*ones(nrep,1));
+                     VdT = fct_GetCovarMatrixMulti(id,Npix,filename,2);
+                     uidTrel(nrep) = sqrt( sum(sum(VdT(1:nrep,1:nrep)))/sum(id(1:nrep))^2+...
+                           sum(sum(VdT((nrep+1):end,(nrep+1):end)))/sum(id((nrep+1):end))^2-...
+                           2*sum(sum(VdT(1:nrep,(nrep+1):end)))/sum(id(1:nrep))/sum(id((nrep+1):end))    );
+                end
+              
+                figure;
+                plot(1:nreps,uidTrel*100,'k','linewidth',2);
+                grid on;
+                xlabel('Number of measurements');
+                ylabel('Dose uncertainty in %');
+                set(gca,'Fontsize',24,'Fontname','Times');
+                xlim([1 nreps]);
+    
+                fprintf('Relative & Rule 1 & Repeated (2-%i) & %i pix & %.1f-%.1f\n',...
+                        nreps, ...
+                        Npix, ...
+                        100*min(uidTrel(2:end)),100* max(uidTrel(2:end)));
+     
+            end
+        end
+    end      
+                   
         %HB 19 jan 2021: to be updated
 %         [DOSE,OD,M,type,sigparam,Npix] = fct_readcalfile(file);
 %         fclose(file);

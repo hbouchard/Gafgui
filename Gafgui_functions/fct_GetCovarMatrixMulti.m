@@ -8,6 +8,7 @@ file = fopen(filename,'r');
 % WB 2022: need here to use fct_READCAlFileMulti and not fct_readcalfile
 %[DOSE,OD,M,type,sigparam,dummy,t0] = fct_readcalfile(file);
 [DOSE,OD,s1,t0,dummy,res,channel,type,M] = fct_ReadCalFileMulti(file);
+DOSE = DOSE(2:end); OD = OD(2:end); s1 = s1(2:end); %WB 2022: To compare with Papier_ETAPE3_Film_variance_Jun2022.m the 0 value is omitted to create Vp 
 fclose(file);
 [p,sycal,R,df] = fct_lsf(DOSE,OD,M,type);
 qT  = polyfit(OD+t0, log(s1) ,1);

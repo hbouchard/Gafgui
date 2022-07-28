@@ -3365,9 +3365,11 @@ if ~strcmp(class(ifilename),'double')
     %WB 22 july 2022: Need to use fct_ReadCalFileMulti here and not
     %fct_readcalfile
     [DOSE,nTHETA,sTHETA,THETA0,Npix,res,channel,opt,M] = fct_ReadCalFileMulti(file);
+    Npix = 1; % To compare with Papier_ETAPE3_Film_variance_Jun2022.m
     fclose(file);
 
-    dose= 10:10:max(DOSE);
+%     dose= 10:10:max(DOSE);
+    dose = 0:5:max(DOSE); % to compare with Papier_ETAPE3_Film_variance_Jun2022.m
 
     button = questdlg('What kind of variance analysis to do?','Single variance analysis','Absolute','Relative', 'Absolute');
     if strcmp(button,'Absolute') % Absolute
@@ -3408,7 +3410,8 @@ if ~strcmp(class(ifilename),'double')
 
     elseif strcmp(button, 'Relative') % Relative
         % Normalization dose value
-        dosenorm = max(dose)/2; % See if we ask the user or take minimal uncertainty dose
+%         dosenorm = max(dose)/2; % See if we ask the user or take minimal uncertainty dose
+        dosenorm = 400; % To compare with Papier_ETAPE3_Film_variance_Jun2022.m
         r = dose/dosenorm;
         rule = questdlg('What irradiation context?', 'Irradiation Context', 'Rule 1 (Separate irradiations, e.g. Output factors)','Rule 2 (Single irradiation, e.g. Dose profiles)', 'Both', 'Both');
         if strcmp(rule,'Rule 1 (Separate irradiations, e.g. Output factors)')
@@ -3432,7 +3435,7 @@ if ~strcmp(class(ifilename),'double')
                 100*min(ur1(intersect(find(dose>200),find(dose<800)))),100* max(ur1(intersect(find(dose>200),find(dose<800)))));
         
         elseif strcmp(rule,'Rule 2 (Single irradiation, e.g. Dose profiles)')  
-            Npixnorm = ceil(0.1/res)^2; % 1x1 mm2
+            Npixnorm = ceil(1/res)^2; % See if we put 1x1 mm2 here
             [V1, V2] = fct_GetCovarMatrixMulti(dose,Npix,Npix,filename,1, dosenorm, Npixnorm);
             ur2  = sqrt(diag(V2(1:end-1,1:end-1))./dose(:).^2  + V2(end,end)./dosenorm.^2  - 2*V2(1:end-1,end)./dose(:)/dosenorm);
             
@@ -3470,7 +3473,6 @@ if ~strcmp(class(ifilename),'double')
                 dosenorm, ...
                 100*min(ur1(intersect(find(dose>200),find(dose<800)))),100* max(ur1(intersect(find(dose>200),find(dose<800)))));
             
-            Npixnorm = ceil(0.1/res)^2; % 1x1 mm2
             [V1, V2] = fct_GetCovarMatrixMulti(dose,Npix,filename,1, dosenorm, Npixnorm);
             ur2  = sqrt(diag(V2(1:end-1,1:end-1))./dose(:).^2  + V2(end,end)./dosenorm.^2  - 2*V2(1:end-1,end)./dose(:)/dosenorm);
             
@@ -3598,12 +3600,13 @@ function VARANALYSIS_REPEATED_Callback(hObject, eventdata, handles)
         %     else
         file = fopen(filename,'r');
         
-            %WB 22 july 2022: Need to use fct_ReadCalFileMulti here and not
+        %WB 22 july 2022: Need to use fct_ReadCalFileMulti here and not
         %fct_readcalfile
         [DOSE,nTHETA,sTHETA,THETA0,Npix,res,channel,opt,M] = fct_ReadCalFileMulti(file);
+        Npix = round(0.5/res)^2; % To compare with Papier_ETAPE3_Film_variance_Jun2022.m
         fclose(file);
   
-        nreps  = inputdlg({'Number of repeated irradiations:'},'Input',[1 40]);
+        nreps  = 10; % inputdlg({'Number of repeated irradiations:'},'Input',[1 40]);
         dosechoice = inputdlg({'Dose value (MU):'}, 'Input', [1 40]);
         if (numel(nreps) || numel(dosechoice)) == 0
             warning('Wrong inputs please try again')
@@ -3612,7 +3615,7 @@ function VARANALYSIS_REPEATED_Callback(hObject, eventdata, handles)
         end
         
         if flag == 1
-            nreps = str2double(nreps{1});
+            %nreps = str2double(nreps{1});
             dosechoice = str2double(dosechoice{1});
             button = questdlg('What kind of variance analysis to do?','Single variance analysis','Absolute','Relative', 'Absolute');
             
@@ -3620,7 +3623,7 @@ function VARANALYSIS_REPEATED_Callback(hObject, eventdata, handles)
                 uidTabs = zeros(nreps,1);
                 for nrep = 1:nreps           
                      id = dosechoice*ones(nrep,1);
-                     VdT = fct_GetCovarMatrixMulti(id,Npix,filename,2);
+                     VdT = fct_GetCovarMatrixMulti(id(:),Npix,filename,2);
                      uidTabs(nrep) =  sqrt(sum(sum(VdT)))/mean(id)/nrep;
                 end
                 

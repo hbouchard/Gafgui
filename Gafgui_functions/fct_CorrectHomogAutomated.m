@@ -27,6 +27,15 @@ B = double(I(:,:,3));
 %Here I set the min and max values of xunique given by the homog calibration
 xmin = min(xunique); 
 xmax = max(xunique);
+%%%%%%%%%%%%%%%%%%%%
+%HACK!
+%HB 12 July: this is a hack to avoid width limitation
+button = questdlg('Do you want to extend the correction to the whole scanner bed?','Cheat','Yes','No','Yes') ;
+if strcmp(button,'Yes')
+    xmin = -100; xmax = 100;
+end
+%%%%%%%%%%%%%%%%%%%%
+%
 k = intersect(find(x>=xmin),find(x<=xmax));
 if corrdir==1
     R = R(k,:);

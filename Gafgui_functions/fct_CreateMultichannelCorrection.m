@@ -193,11 +193,12 @@ if flag>0
        Y = cat(k,Y,ymat{i});
        Z = cat(k,Z,zmat{i});                           
     end
-    %HB 11 July 2022: this was missing!!
+    %HB 11 July 2022: this was missing
     %the range is important to assure that the ECR do no go being 4.81
     %which corresponds to a signal of 1
-    znorm = mean(Z(:));
-    Z = Z/znorm;
+    %znorm = mean(Z(:));
+    %Z = Z/znorm;
+    %HB 12 July: I want to try subtracting THETA by a min(trange) instead to adjust the range of THETA values.
     %
     figure;
     subplot(1,3,1);
@@ -222,8 +223,10 @@ if flag>0
     if ofilename==0            
     else
         filename = fct_makecleanfilename(opathname,ofilename);
-        err = fct_WriteMultiCorrection(filename,Rot,rrange,grange,brange,trange,znorm);
-        [Rotcheck,rrange_,grange_,brange_,trange,znorm,err_]  = fct_ReadMultiCorrection(filename);
+%         err = fct_WriteMultiCorrection(filename,Rot,rrange,grange,brange,trange,znorm);
+%         [Rotcheck,rrange_,grange_,brange_,trange,znorm,err_]  = fct_ReadMultiCorrection(filename);
+        err = fct_WriteMultiCorrection(filename,Rot,rrange,grange,brange,trange);
+        [Rotcheck,rrange_,grange_,brange_,trange,err_]  = fct_ReadMultiCorrection(filename);
         Rotcheck-Rot
         E = Rot';
         Echeck = Rotcheck';

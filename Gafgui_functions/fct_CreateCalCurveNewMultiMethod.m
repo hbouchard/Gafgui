@@ -259,7 +259,7 @@ if flag~=0
             [DOSE,isort] = sort(DOSE);
             numpix = [];
             A = [];
-            nTHETA = []; snTHETA = []; 
+            nTHETA = []; snTHETA = [];
             xi = []; muxi = [];
             dose = [];
             Npix = DOSE*0;
@@ -447,9 +447,9 @@ if flag~=0
             if ~strcmp(class(ofilename),'double')
                 file = fopen(fct_makecleanfilename(opathname,ofilename),'w');
                 for i=1:nbfilms
-                    fprintf(file,'%e\t%e\t%e\n',DOSE(i),OD(i),s1(i)); 
+                    fprintf(file,'%e\t%e\t%e\n',DOSE(i),OD(i),sOD(i));
                 end
-                %HB 18 jan 2021: we no longer separately consider the ucnertainty on the background value, i.e. it is built in sig0
+                %HB 18 jan 2021: we no longer separately consider the uncertainty on the background value, i.e. it is built in sig0
                 fprintf(file,'%e\t%e\t%e\n',THETA0,Npix,RES_RAD);
                 fprintf(file,'%e\t%e\t%e',Channel,N,opt);
                 fclose(file);

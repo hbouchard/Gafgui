@@ -343,6 +343,39 @@ if flag~=-1
             end
         end
     end
+%     %% HB July 2022: testing if it is worth correcting OD inseatd of signal based on van Battum a Schoenfeld
+%     itest = 3;
+%     ODR = double(rmat{itest});
+%     ODR = log10(65535./ODR(:));
+%     i = intersect(find(x<1),find(x>-1));
+%     xi = mean(ODR(i))./ODR;
+%     if dir==2
+%         x = posy{itest}; 
+%     elseif dir==1
+%         x = posx{itest}; 
+%     end
+%     x = x(:);
+%     figure;
+%     plot(x,xi,'.'); 
+%     xlabel('Position (cm)');
+%     ylabel('Signal');
+%     %x = l*sqrt(n^2*(1-xi.^2)./(1-n^2.*(1-xi.^2)))+0.5*t*sqrt(1-xi.^2)./xi;
+%     hold;
+%     xhat = @(xi,l,n,t) l*sqrt(n^2*(1-xi.^2)./(1-n^2.*(1-xi.^2)))+0.5*t*sqrt(1-xi.^2)./xi;
+%     ixi = [0.9:0.001:1]';
+%     n = 1.2;
+%     l = 35.6;
+%     t = 50e-4;
+%     ixhat = -xhat(ixi,l,n,t);
+%     ixhat = cat(1,ixhat,xhat(flipud(ixi(1:end-1)),l,n,t));
+%     ixi = cat(1,ixi,flipud(ixi(1:end-1)));
+%     plot(ixhat,ixi,'.r');
+%     xlim([min(x(:)) max(x(:))]);
+% 
+%     figure;
+%     plot(x(:),interp1(ixhat,ixi,x(:)).*ODR(:),'.k')
+%     
+%     zzz
     %%
     if flag
         clear r g b x r0 g0 b0;

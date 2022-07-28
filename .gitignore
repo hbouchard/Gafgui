@@ -1,2 +1,5 @@
 # Gafgui_main/
 #Gafgui_main/dummy.txt
+Gafgui_functions/fct_CreateHomogCorrectionMatrixAutomatedPathlength.m
+fct_var_temp.m
+.DS_Store

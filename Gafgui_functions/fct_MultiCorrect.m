@@ -43,7 +43,8 @@ if flag == 2
         fname = fct_makecleanfilename(opathname,ofilename);
         %new method
         
-        [Rot,rrange,grange,brange,trange,znorm,err]  = fct_ReadMultiCorrection(fname);
+%         [Rot,rrange,grange,brange,trange,znorm,err]  = fct_ReadMultiCorrection(fname);
+        [Rot,rrange,grange,brange,trange,err]  = fct_ReadMultiCorrection(fname);
         if err
             errordlg('File not read. Something went wrong.');
         else
@@ -52,7 +53,7 @@ if flag == 2
             clear str;
 
             %button = questdlg('Do you want to filter the thickness correction?','Filter','Yes','No','Yes') ;
-            button = 'Yes';
+            button = 'No';
             if strcmp(button,'Yes')
                 filterimage = 1;
             else
@@ -105,15 +106,29 @@ if flag == 2
             %I = 65535*10.^(-THETA). One alternative would be to ask the
             %user to select a piece of film (exempt of marks or tape) and take the average EC3 for
             %normalization. Until then, we pass the normalization information from the characterization of the correction 
-            Z = Z/znorm;
+            %Z = Z/znorm;
+            %HB 12 July: we will substract by the minimum value of trange
+            %instead and add 0.1
             %we want to avoid Z=0
             [lin,col] = size(Z);
             Z = reshape(Z,lin*col,1);
             Z(find(Z==0)) = 1;
             Z = reshape(Z,lin,col);
             THETA = X./Z;
-            %Bug William 11 juillet 2022??
+            %Bug William 11 juillet 2022
             %FLAG = FLAG.*double(logical(THETA>=trange(1))).*double(logical(THETA<=trange(2)));
+            %HB 12 July: this is the max OD for which there will be a numerical error
+            %of 0.0001 on OD via conversion into unint16
+            maxOD = log10(10^0.0001-1)+log10(65535);
+            minOD = 0.1;
+            %HB 12 July this is the new way to assure THETA can be
+            %converted into a 16 bit tiff image without loosing information
+            %hence we map THETA from trange to [minOD,maxOD]
+            THETA = (THETA - min(trange))/(max(trange)- min(trange))*(maxOD-minOD) + minOD;
+            THETA = max(min(THETA,log10(65535)),0);
+            %THETA = max(min(THETA,maxOD*2),0);
+            % Now we use the valid part only for which RGB falls into range
+            % which assures there is actually film (or something else) on the scanner bed
             IMG = uint16(FLAG.*(65535*10.^(-THETA)) + (1-FLAG).*(65535*10.^(-S)));
             %
             if 0%to show the difference between corrected and uncorrected

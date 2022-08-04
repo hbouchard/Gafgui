@@ -3362,17 +3362,31 @@ if ~strcmp(class(ifilename),'double')
     filename = fct_makecleanfilename(ipathname,ifilename);
     file = fopen(filename,'r');
 
-    %WB 22 july 2022: Need to use fct_ReadCalFileMulti here and not
+    %WB 2022: New implementation
+    %--------------------------------------------------------------------------------------------------------------------------------------------------
+    [DOSE,nTHETA,sTHETA,THETA0,Npix,res,channel,opt,M] = fct_ReadCalFileMulti(file); %WB 2022: fct_ReadCalFileMulti used instead of
     %fct_readcalfile
-    [DOSE,nTHETA,sTHETA,THETA0,Npix,res,channel,opt,M] = fct_ReadCalFileMulti(file);
-    Npix = 1; % To compare with Papier_ETAPE3_Film_variance_Jun2022.m
     fclose(file);
 
-%     dose= 10:10:max(DOSE);
-    dose = 0:5:max(DOSE); % to compare with Papier_ETAPE3_Film_variance_Jun2022.m
+    dose = (0:5:max(DOSE))'; 
 
-    button = questdlg('What kind of variance analysis to do?','Single variance analysis','Absolute','Relative', 'Absolute');
-    if strcmp(button,'Absolute') % Absolute
+    kind = questdlg('What kind of variance analysis to do?','Single variance analysis','Absolute','Relative', 'Absolute');
+
+    if strcmp(kind,'Absolute') % Absolute
+        opts.Interpreter = 'tex';
+        opts.Default = 'Calibration size (1x1 cm^2)';
+        Npixchoice = questdlg('What ROI size for averaging?','ROI size', ...
+            'Calibration size (1x1 cm^2)','Specific size', opts);
+        
+        if strcmp(Npixchoice, 'Specific size') % Specific number of pixels number
+            ROIsize = inputdlg({sprintf('ROI width in cm (RES = %f cm)', res)},'Input',[1 50]);
+            if (isempty(ROIsize{1}) || isnan(str2double(ROIsize{1})))
+                error('Input must be a number please try again.')
+            else
+                Npix = round(str2double(ROIsize{1})/res)^2;
+            end
+
+        end
         
         [V1, V2] = fct_GetCovarMatrixMulti(dose,Npix,filename,1);
         sd1 = sqrt(diag(V1))./dose(:);
@@ -3391,31 +3405,26 @@ if ~strcmp(class(ifilename),'double')
             100*min(sd1(intersect(find(dose>200),find(dose<800)))),100* max(sd1(intersect(find(dose>200),find(dose<800)))));
         
         
-%         plot(dose(:),sd2(:)*100,'k','linewidth',2);
-%         set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
-%         xlabel('Dose (CMU)');
-%         ylabel('Relative uncertainty (%) (Abs & rule 2');
-%         title(fct_addbackslash(ifilename));
-%         set(gca,'Ylim',[0 5],'Xlim',[0 max(DOSE)]);
-%         grid on;
-%     
-%         fprintf('Absolute & Rule 2 & Single & %i pix & %.1f-%.1f\n',...
-%             Npix(1), ...
-%             100*min(sd2(intersect(find(dose>200),find(dose<800)))),100* max(sd2(intersect(find(dose>200),find(dose<800)))));
-%     
-        
-        % Find normalization dose value
-%         k= find((sd1(:))==min(sd1(:))); % smallest uncertainty
-%         dosenorm = dose(k);
-
-    elseif strcmp(button, 'Relative') % Relative
-        % Normalization dose value
-%         dosenorm = max(dose)/2; % See if we ask the user or take minimal uncertainty dose
-        dosenorm = 400; % To compare with Papier_ETAPE3_Film_variance_Jun2022.m
+    elseif strcmp(kind, 'Relative') % Relative
+        dosenorm = max(dose)/2; % Normalization dose value: See if we ask the user
         r = dose/dosenorm;
-        rule = questdlg('What irradiation context?', 'Irradiation Context', 'Rule 1 (Separate irradiations, e.g. Output factors)','Rule 2 (Single irradiation, e.g. Dose profiles)', 'Both', 'Both');
+        rule = questdlg('What irradiation context?', 'Irradiation Context', 'Rule 1 (Separate irradiations, e.g. Output factors)','Rule 2 (Single irradiation, e.g. Dose profile)', 'Both', 'Both');
+        opts.Interpreter = 'tex';
+        opts.Default = 'Calibration size (1x1 cm^2)';
+        Npixchoice = questdlg('What ROI size for averaging?','ROI size', ...
+            'Calibration size (1x1 cm^2)','Specific size', opts);
+
+        if strcmp(Npixchoice, 'Specific size') % Specific number of pixels number
+            ROIsize = inputdlg({sprintf('ROI width in cm (RES = %f cm)', res)},'Input',[1 50]);
+            if (isempty(ROIsize{1}) || isnan(str2double(ROIsize{1})))
+                error('Input must be a number please try again.')
+            else
+                Npix = round(str2double(ROIsize{1})/res)^2;
+            end
+
+        end
         if strcmp(rule,'Rule 1 (Separate irradiations, e.g. Output factors)')
-            Npixnorm = ceil(1/res)^2; % 1x1 cm2
+            Npixnorm = ceil(1/res)^2; % 1x1 cm^2: See if we ask the user
             [V1, V2] = fct_GetCovarMatrixMulti(dose,Npix,filename,1, dosenorm, Npixnorm);
             ur1  = sqrt(diag(V1(1:end-1,1:end-1))./dose(:).^2  + V1(end,end)./dosenorm.^2  - 2*V1(1:end-1,end)./dose(:)/dosenorm);
               
@@ -3434,9 +3443,9 @@ if ~strcmp(class(ifilename),'double')
                 dosenorm, ...
                 100*min(ur1(intersect(find(dose>200),find(dose<800)))),100* max(ur1(intersect(find(dose>200),find(dose<800)))));
         
-        elseif strcmp(rule,'Rule 2 (Single irradiation, e.g. Dose profiles)')  
-            Npixnorm = ceil(1/res)^2; % See if we put 1x1 mm2 here
-            [V1, V2] = fct_GetCovarMatrixMulti(dose,Npix,Npix,filename,1, dosenorm, Npixnorm);
+        elseif strcmp(rule,'Rule 2 (Single irradiation, e.g. Dose profile)')  
+            Npixnorm = ceil(1/res)^2; % 1x1 cm^2: See if we put 1x1 mm2 or ask the user
+            [V1, V2] = fct_GetCovarMatrixMulti(dose,Npix,filename,1, dosenorm, Npixnorm);
             ur2  = sqrt(diag(V2(1:end-1,1:end-1))./dose(:).^2  + V2(end,end)./dosenorm.^2  - 2*V2(1:end-1,end)./dose(:)/dosenorm);
             
             figure;
@@ -3453,12 +3462,29 @@ if ~strcmp(class(ifilename),'double')
                 Npixnorm, ...
                 dosenorm, ...
                 100*min(ur2(intersect(find(dose>200),find(dose<800)))),100* max(ur2(intersect(find(dose>200),find(dose<800)))));
+        
         elseif strcmp(rule, 'Both')
-            Npixnorm = ceil(1/res)^2; % 1x1 cm2
+            opts.Interpreter = 'tex';
+            opts.Default = 'Calibration size (1x1 cm^2)';
+            Npixchoice = questdlg('What ROI size for averaging?','ROI size', ...
+                'Calibration size (1x1 cm^2)','Specific size', opts);
+
+            if strcmp(Npixchoice, 'Specific size') % Specific number of pixels number
+                ROIsize = inputdlg({sprintf('ROI width in cm (RES = %f cm)', res)},'Input',[1 50]);
+                if (isempty(ROIsize{1}) || isnan(str2double(ROIsize{1})))
+                    error('Input must be a number please try again.')
+                else
+                    Npix = round(str2double(ROIsize{1})/res)^2;
+                end
+
+            end
+            Npixnorm = ceil(1/res)^2; % 1x1 cm^2: See if we ask the user
             [V1, V2] = fct_GetCovarMatrixMulti(dose,Npix,filename,1, dosenorm, Npixnorm);
             ur1  = sqrt(diag(V1(1:end-1,1:end-1))./dose(:).^2  + V1(end,end)./dosenorm.^2  - 2*V1(1:end-1,end)./dose(:)/dosenorm);
-              
+            ur2  = sqrt(diag(V2(1:end-1,1:end-1))./dose(:).^2  + V2(end,end)./dosenorm.^2  - 2*V2(1:end-1,end)./dose(:)/dosenorm);
+            
             figure;
+            subplot(1,2,1)
             plot(r,ur1(:)*100,'k','linewidth',2);
             set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
             xlabel('Dose ratio');
@@ -3472,11 +3498,9 @@ if ~strcmp(class(ifilename),'double')
                 Npixnorm, ...
                 dosenorm, ...
                 100*min(ur1(intersect(find(dose>200),find(dose<800)))),100* max(ur1(intersect(find(dose>200),find(dose<800)))));
+           
             
-            [V1, V2] = fct_GetCovarMatrixMulti(dose,Npix,filename,1, dosenorm, Npixnorm);
-            ur2  = sqrt(diag(V2(1:end-1,1:end-1))./dose(:).^2  + V2(end,end)./dosenorm.^2  - 2*V2(1:end-1,end)./dose(:)/dosenorm);
-            
-            figure;
+            subplot(1,2,2)
             plot(r,ur2(:)*100,'k','linewidth',2);
             set(gca,'Fontsize',12,'Fontweight','bold','Fontname','Times New Roman');
             xlabel('Dose ratio');
@@ -3493,7 +3517,7 @@ if ~strcmp(class(ifilename),'double')
         end
     end
 end
-
+    %--------------------------------------------------------------------------------------------------------------------------------------------------
 
 %         %HB 19 jan 2021: to be updated
 %         [DOSE,OD,M,type,sigparam,Npix] = fct_readcalfile(file);
@@ -3599,77 +3623,88 @@ function VARANALYSIS_REPEATED_Callback(hObject, eventdata, handles)
         %
         %     else
         file = fopen(filename,'r');
-        
-        %WB 22 july 2022: Need to use fct_ReadCalFileMulti here and not
-        %fct_readcalfile
-        [DOSE,nTHETA,sTHETA,THETA0,Npix,res,channel,opt,M] = fct_ReadCalFileMulti(file);
-        Npix = round(0.5/res)^2; % To compare with Papier_ETAPE3_Film_variance_Jun2022.m
+
+        %WB 2022: New implementation
+        %--------------------------------------------------------------------------------------------------------------------------------------------------
+        [DOSE,nTHETA,sTHETA,THETA0,Npix,res,channel,opt,M] = fct_ReadCalFileMulti(file); % fct_ReadCalFileMulti used instead of fct_readcalfile
         fclose(file);
-  
-        nreps  = 10; % inputdlg({'Number of repeated irradiations:'},'Input',[1 40]);
+
+        nreps  = 10; % Number of measurements repetition: See if we ask the user - inputdlg({'Number of repeated irradiations:'},'Input',[1 40]);
         dosechoice = inputdlg({'Dose value (MU):'}, 'Input', [1 40]);
-        if (numel(nreps) || numel(dosechoice)) == 0
-            warning('Wrong inputs please try again')
-        else
-            flag = 1;
+
+        if (isempty(dosechoice{1}) || isnan(str2double(dosechoice{1})))
+            error('Wrong input please try again.')
         end
-        
-        if flag == 1
-            %nreps = str2double(nreps{1});
-            dosechoice = str2double(dosechoice{1});
-            button = questdlg('What kind of variance analysis to do?','Single variance analysis','Absolute','Relative', 'Absolute');
-            
-            if strcmp(button,'Absolute') % Absolute
-                uidTabs = zeros(nreps,1);
-                for nrep = 1:nreps           
-                     id = dosechoice*ones(nrep,1);
-                     VdT = fct_GetCovarMatrixMulti(id(:),Npix,filename,2);
-                     uidTabs(nrep) =  sqrt(sum(sum(VdT)))/mean(id)/nrep;
-                end
-                
-                figure;
-                plot(1:nreps,uidTabs(:)*100,'k','linewidth',2);
-                grid on;
-                xlabel('Number of measurements');
-                ylabel('Dose uncertainty in %');
-                set(gca,'Fontsize',24,'Fontname','Times');
-                xlim([1 nreps]);
-                        
-                fprintf('Absolute & Rule 1 & Repeated (2-%i) & %i pix & %.1f-%.1f\n',...
-                          nreps, ...
-                          Npix, ...
-                          100*min(uidTabs(2:end)),100* max(uidTabs(2:end)));
-                
-        
-            elseif strcmp(button, 'Relative') % Relative
-                % Normalization dose value
-                uidTrel = zeros(nreps,1);
-                for nrep = 1:nreps
-                     id = cat(1,dosechoice*ones(nrep,1),dosechoice*ones(nrep,1));
-                     VdT = fct_GetCovarMatrixMulti(id,Npix,filename,2);
-                     uidTrel(nrep) = sqrt( sum(sum(VdT(1:nrep,1:nrep)))/sum(id(1:nrep))^2+...
-                           sum(sum(VdT((nrep+1):end,(nrep+1):end)))/sum(id((nrep+1):end))^2-...
-                           2*sum(sum(VdT(1:nrep,(nrep+1):end)))/sum(id(1:nrep))/sum(id((nrep+1):end))    );
-                end
-              
-                figure;
-                plot(1:nreps,uidTrel*100,'k','linewidth',2);
-                grid on;
-                xlabel('Number of measurements');
-                ylabel('Dose uncertainty in %');
-                set(gca,'Fontsize',24,'Fontname','Times');
-                xlim([1 nreps]);
-    
-                fprintf('Relative & Rule 1 & Repeated (2-%i) & %i pix & %.1f-%.1f\n',...
-                        nreps, ...
-                        Npix, ...
-                        100*min(uidTrel(2:end)),100* max(uidTrel(2:end)));
-     
+
+        %nreps = str2double(nreps{1});
+        dosechoice = str2double(dosechoice{1});
+        kind = questdlg('What kind of variance analysis to do?','Single variance analysis','Absolute','Relative', 'Absolute');
+        opts.Interpreter = 'tex';
+        opts.Default = 'Calibration size (1x1 cm^2)';
+        Npixchoice = questdlg('What ROI size for averaging?','ROI size', ...,
+                              'Calibration size (1x1 cm^2)','Specific size', opts);
+
+        if strcmp(Npixchoice, 'Specific size') % Specific number of pixels number
+            ROIsize = inputdlg({sprintf('ROI width in cm (RES = %f cm)', res)},'Input',[1 50]);
+            if (isempty(ROIsize{1}) || isnan(str2double(ROIsize{1})))
+                error('Input must be a number please try again')
+            else
+                Npix = round(str2double(ROIsize{1})/res)^2;
             end
         end
-    end      
-                   
-        %HB 19 jan 2021: to be updated
+
+        if strcmp(kind,'Absolute') % Absolute
+            uidTabs = zeros(nreps,1);
+            for nrep = 1:nreps
+                id = dosechoice*ones(nrep,1);
+                VdT = fct_GetCovarMatrixMulti(id(:),Npix,filename,2);
+                uidTabs(nrep) =  sqrt(sum(sum(VdT)))/mean(id)/nrep;
+            end
+
+            figure;
+            plot(1:nreps,uidTabs(:)*100,'k','linewidth',2);
+            grid on;
+            xlabel('Number of measurements');
+            ylabel('Dose uncertainty in %');
+            set(gca,'Fontsize',24,'Fontname','Times');
+            xlim([1 nreps]);
+
+            fprintf('Absolute & Rule 1 & Repeated (2-%i) & %i pix & %.3f-%.3f\n',...
+                nreps, ...
+                Npix, ...
+                100*min(uidTabs(2:end)),100* max(uidTabs(2:end)));
+
+
+        elseif strcmp(kind, 'Relative') % Relative
+            % Normalization dose value
+            uidTrel = zeros(nreps,1);
+            for nrep = 1:nreps
+                id = cat(1,dosechoice*ones(nrep,1),dosechoice*ones(nrep,1));
+                VdT = fct_GetCovarMatrixMulti(id,Npix,filename,2);
+                uidTrel(nrep) = sqrt( sum(sum(VdT(1:nrep,1:nrep)))/sum(id(1:nrep))^2+...
+                    sum(sum(VdT((nrep+1):end,(nrep+1):end)))/sum(id((nrep+1):end))^2-...
+                    2*sum(sum(VdT(1:nrep,(nrep+1):end)))/sum(id(1:nrep))/sum(id((nrep+1):end))    );
+            end
+
+            figure;
+            plot(1:nreps,uidTrel*100,'k','linewidth',2);
+            grid on;
+            xlabel('Number of measurements');
+            ylabel('Dose uncertainty in %');
+            set(gca,'Fontsize',24,'Fontname','Times');
+            xlim([1 nreps]);
+
+            fprintf('Relative & Rule 1 & Repeated (2-%i) & %i pix & %.3f-%.3f\n',...
+                nreps, ...
+                Npix, ...
+                100*min(uidTrel(2:end)),100* max(uidTrel(2:end)));
+
+        end
+
+    end
+    %--------------------------------------------------------------------------------------------------------------------------------------------------
+
+    %HB 19 jan 2021: to be updated
 %         [DOSE,OD,M,type,sigparam,Npix] = fct_readcalfile(file);
 %         fclose(file);
 % 

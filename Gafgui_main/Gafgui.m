@@ -3464,20 +3464,6 @@ if ~strcmp(class(ifilename),'double')
                 100*min(ur2(intersect(find(dose>200),find(dose<800)))),100* max(ur2(intersect(find(dose>200),find(dose<800)))));
         
         elseif strcmp(rule, 'Both')
-            opts.Interpreter = 'tex';
-            opts.Default = 'Calibration size (1x1 cm^2)';
-            Npixchoice = questdlg('What ROI size for averaging?','ROI size', ...
-                'Calibration size (1x1 cm^2)','Specific size', opts);
-
-            if strcmp(Npixchoice, 'Specific size') % Specific number of pixels number
-                ROIsize = inputdlg({sprintf('ROI width in cm (RES = %f cm)', res)},'Input',[1 50]);
-                if (isempty(ROIsize{1}) || isnan(str2double(ROIsize{1})))
-                    error('Input must be a number please try again.')
-                else
-                    Npix = round(str2double(ROIsize{1})/res)^2;
-                end
-
-            end
             Npixnorm = ceil(1/res)^2; % 1x1 cm^2: See if we ask the user
             [V1, V2] = fct_GetCovarMatrixMulti(dose,Npix,filename,1, dosenorm, Npixnorm);
             ur1  = sqrt(diag(V1(1:end-1,1:end-1))./dose(:).^2  + V1(end,end)./dosenorm.^2  - 2*V1(1:end-1,end)./dose(:)/dosenorm);

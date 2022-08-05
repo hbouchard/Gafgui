@@ -3307,7 +3307,7 @@ if ifilename1~=0
                             vy = IMAGE1(:,index+1,2)/2 + IMAGE1(:,index+1,2)/2;
                             vz = IMAGE1(:,index+1,3)/2 + IMAGE1(:,index+1,3)/2;
                         elseif channel==4
-                            vx = IMAGE1(:,index+1)/2 + IMAGE1(:,index+1)/2;    
+                            vx = IMAGE1(:,index+1)/2 + IMAGE1(:,index+1)/2;
                         end
                     end
                     if channel==5
@@ -3326,23 +3326,95 @@ if ifilename1~=0
                     NEWIMAGE(:,:,2) = y;
                     NEWIMAGE(:,:,3) = z;
                 elseif channel==4
-                    NEWIMAGE = uint16(x); 
+                    NEWIMAGE = uint16(x);
                 end
-                [ofilename,opathname,FilterIndex] = uiputfile({'*.tif'},'Save merged image');
-                path = opathname;
-                filename = ofilename;
-                if (path(max(size(path,1),size(path,2)))==c)
-                    name = [path filename];
-                else
-                    name = [path c filename];
-                end
-                ofilename = name;
+                %WB 2022: Realign bands with the merging
+                %---------------------------------------------------------------------------------
+                %                 figure('NumberTitle','off','Name','Merged image');
+                %                 h = fct_display(NEWIMAGE,Resolution);
+                %                 figure(h);
+                %                 ans = questdlg('Do you want to align left bands with right bands?','Image','Yes','No','Yes') ;
+                %                 if strcmp(ans,'Yes')
+                %                     close(h);
+                %                     figure('NumberTitle','off','Name','Merged image');
+                %                     if strcmp(button, 'Horizontal') % If button is horizontal then bands are horizontal
+                %                         h0 = fct_display(Im,res);
+                %                         h = msgbox('Click on the up-down edges of left bands then press enter');
+                %                         uiwait(h);
+                %                         [dummy1,yl,dummy2,nyl]= fct_getpoints(NEWIMAGE,Resolution);
+                %                         if length(yl)>1
+                %                             h = msgbox('Click on the left-right edges of left bands then press enter');
+                %                             uiwait(h);
+                %                             [xl,dummy1,nxl,dummy2]= fct_getpoints(NEWIMAGE,Resolution);
+                %                         end
+                %
+                %                         if nxl~=2 % Verify that 2 left-right edges are selected for left bands
+                %                             error('More than 2 left-right edges selected for left bands');
+                %                         end
+                %
+                %                         if flag==1
+                %                             h = msgbox('Click on the up-down edges of right bands then press enter');
+                %                             uiwait(h);
+                %                             [dummy1,yr,dummy2,nyr]= fct_getpoints(NEWIMAGE,Resolution);
+                %                             if length(yr)>1
+                %                                 h = msgbox('Click on the left-right edges of right bands then press enter');
+                %                                 uiwait(h);
+                %                                 [xr,dummy1,nxr,dummy2]= fct_getpoints(NEWIMAGE,Resolution);
+                %                             end
+                %                         end
+                %
+                %                         if nxr~=2 % Verify that 2 left-right edges are selected for right bands
+                %                             error('More than 2 left-right edges selected for right bands');
+                %                         end
+                %
+                %                         if nyl~=nyr % Check if same number of bands where chosen in left/right side
+                %                             error('Not same number of up-down edges selected for left and right bands')
+                %                         end
+                %
+                %                         %Find the minimal width of bands and apply it to
+                %                         %all bands
+                % %                         min_ywidth = min(min(diff(yl)), min(diff(yr)));
+                % %                         min_iywidth = round(min_ywidth/res);
+                %                         iyl = round(yl/res);
+                %                         ixl = round(xl/res);
+                %                         iyr = round(yr/res);
+                %                         ixr = round(xr/res);
+                %
+                %                         New_Image = NEWIMAGE;
+                %                         iyl_widths = diff(iyl);
+                %                         iyr_widths = diff(iyr);
+                %
+                %                         for i=1:length(iyr_widths)
+                %                             min_iywidth = min(iyl_width(i), iyr_widths(i)); % smallest iywidth between left band i and right band i
+                %                             if min_iywidth == iyl_width(i)
+                %
+                %                             New_Image(iyl(i):iyl(i+1), ixr(i):ixr(i+1))=New_Image(iyr(i):iyr(i+1), ixr(i):ixr(i+1))
+                %                             New_Image(iyr(i):iyr(i+1),ixr(i):ixr(i+1))=0;
+                %                             New_Image(iyl(i):iyl(i+1), ixr(i):ixr(i+1))=
+                %                             end
+                %
 
-                imwrite(NEWIMAGE,ofilename,'tif','Resolution',round(2.54/Resolution));
+
 
             end
         end
     end
+    figure(h);
+    [ofilename,opathname,FilterIndex] = uiputfile({'*.tif'},'Save merged image');
+    path = opathname;
+    filename = ofilename;
+    if (path(max(size(path,1),size(path,2)))==c)
+        name = [path filename];
+    else
+        name = [path c filename];
+    end
+    ofilename = name;
+
+    imwrite(NEWIMAGE,ofilename,'tif','Resolution',round(2.54/Resolution));
+
+end
+end
+end
 end
 % --------------------------------------------------------------------
 function VARANALYSIS_SINGLE_Callback(hObject, eventdata, handles)

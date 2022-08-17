@@ -3374,9 +3374,9 @@ if ~strcmp(class(ifilename),'double')
 
     if strcmp(kind,'Absolute') % Absolute
         opts.Interpreter = 'tex';
-        opts.Default = 'Calibration size (1x1 cm^2)';
+        opts.Default = sprintf('Calibration size (%1.1f x %1.1f cm^2)', sqrt(Npix)*res, sqrt(Npix)*res);
         Npixchoice = questdlg('What ROI size for averaging?','ROI size', ...
-            'Calibration size (1x1 cm^2)','Specific size', opts);
+            opts.Default,'Specific size', opts);
         
         if strcmp(Npixchoice, 'Specific size') % Specific number of pixels number
             ROIsize = inputdlg({sprintf('ROI width in cm (RES = %f cm)', res)},'Input',[1 50]);
@@ -3410,9 +3410,9 @@ if ~strcmp(class(ifilename),'double')
         r = dose/dosenorm;
         rule = questdlg('What irradiation context?', 'Irradiation Context', 'Rule 1 (Separate irradiations, e.g. Output factors)','Rule 2 (Single irradiation, e.g. Dose profile)', 'Both', 'Both');
         opts.Interpreter = 'tex';
-        opts.Default = 'Calibration size (1x1 cm^2)';
+        opts.Default = sprintf('Calibration size (%1.1f x %1.1f cm^2)', sqrt(Npix)*res, sqrt(Npix)*res);
         Npixchoice = questdlg('What ROI size for averaging?','ROI size', ...
-            'Calibration size (1x1 cm^2)','Specific size', opts);
+            opts.Default,'Specific size', opts);
 
         if strcmp(Npixchoice, 'Specific size') % Specific number of pixels number
             ROIsize = inputdlg({sprintf('ROI width in cm (RES = %f cm)', res)},'Input',[1 50]);
@@ -3624,11 +3624,11 @@ function VARANALYSIS_REPEATED_Callback(hObject, eventdata, handles)
 
         %nreps = str2double(nreps{1});
         dosechoice = str2double(dosechoice{1});
-        kind = questdlg('What kind of variance analysis to do?','Single variance analysis','Absolute','Relative', 'Absolute');
+        kind = questdlg('What kind of variance analysis to do?','Repeated variance analysis','Absolute','Relative', 'Absolute');
         opts.Interpreter = 'tex';
-        opts.Default = 'Calibration size (1x1 cm^2)';
+        opts.Default = sprintf('Calibration size (%1.1f x %1.1f cm^2)', sqrt(Npix)*res, sqrt(Npix)*res);
         Npixchoice = questdlg('What ROI size for averaging?','ROI size', ...,
-                              'Calibration size (1x1 cm^2)','Specific size', opts);
+                              opts.Default,'Specific size', opts);
 
         if strcmp(Npixchoice, 'Specific size') % Specific number of pixels number
             ROIsize = inputdlg({sprintf('ROI width in cm (RES = %f cm)', res)},'Input',[1 50]);

@@ -218,8 +218,8 @@ if flag>0
     colormap('gray'); colorbar;
     %signal correction range
     trange = [min(X(:)./Z(:)) max(X(:)./Z(:))];
-    %% Writing the correcion file
-    [ofilename,opathname] = uiputfile({'*.3ch'},'.lin signal calibration');
+    %% Writing the correction file
+    [ofilename,opathname] = uiputfile({'*.3ch'},'.3ch signal calibration');
     if ofilename==0            
     else
         filename = fct_makecleanfilename(opathname,ofilename);

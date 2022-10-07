@@ -740,6 +740,13 @@ if ~strcmp(class(ifilename),'double')
         %Other variables
         if handles.channel==4
             handles.color = 'gray';
+            %**** WB 2022: I fix the new OD saturation limits set in multicorrect
+            % to show automatically
+            handles.SATMIN = 0.1; % WB 2022
+            handles.SATMAX = log10(10^0.0001-1)+log10(65535); 
+            handles.z = min(handles.z, handles.SATMAX);
+            handles.z = max(handles.z, handles.SATMIN);
+            %**************************************************************
         else
             handles.color ='jet';
         end
@@ -3413,9 +3420,7 @@ if ifilename1~=0
     imwrite(NEWIMAGE,ofilename,'tif','Resolution',round(2.54/Resolution));
 
 end
-end
-end
-end
+
 % --------------------------------------------------------------------
 function VARANALYSIS_SINGLE_Callback(hObject, eventdata, handles)
 % hObject    handle to VARANALYSIS_SINGLE (see GCBO)

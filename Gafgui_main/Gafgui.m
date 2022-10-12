@@ -742,8 +742,10 @@ if ~strcmp(class(ifilename),'double')
             handles.color = 'gray';
             %**** WB 2022: I fix the new OD saturation limits set in multicorrect
             % to show automatically
-            handles.SATMIN = 0.1; % WB 2022
-            handles.SATMAX = log10(10^0.0001-1)+log10(65535); 
+            minOD = 0.1;
+            maxOD = log10(10^0.0001-1)+log10(65535);
+            handles.SATMIN = minOD-0.05; % WB 2022
+            handles.SATMAX = maxOD+0.05; 
             handles.z = min(handles.z, handles.SATMAX);
             handles.z = max(handles.z, handles.SATMIN);
             %**************************************************************

@@ -28,12 +28,13 @@ B = double(I(:,:,3));
 xmin = min(xunique); 
 xmax = max(xunique);
 %%%%%%%%%%%%%%%%%%%%
-%HACK!
-%HB 12 July: this is a hack to avoid width limitation
-button = questdlg('Do you want to extend the correction to the whole scanner bed?','Cheat','Yes','No','Yes') ;
-if strcmp(button,'Yes')
-    xmin = -100; xmax = 100;
-end
+%HB Feb 2023 Hack removed. I am working on PCA inseatd, this is likely what the problem is
+% %HACK!
+% %HB 12 July: this is a hack to avoid width limitation
+% button = questdlg('Do you want to extend the correction to the whole scanner bed?','Cheat','Yes','No','Yes') ;
+% if strcmp(button,'Yes')
+%     xmin = -100; xmax = 100;
+% end
 %%%%%%%%%%%%%%%%%%%%
 %
 k = intersect(find(x>=xmin),find(x<=xmax));

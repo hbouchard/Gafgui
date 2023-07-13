@@ -13,6 +13,7 @@ if isfield(handles, 'menus')
             set(handles.menus.SAVE_MATLAB, 'Enable', 'on');
         set(handles.menus.MENUEXPORT, 'Enable', fct_LogicToSwitch(fct_isthereanimage(handles)==1));
             set(handles.menus.EXPORT_TIF16RGB, 'Enable', 'on');
+            set(handles.menus.EXPORT_VIGO, 'Enable', fct_LogicToSwitch(handles.data==4));
         set(handles.menus.CLOSEALL, 'Enable', fct_LogicToSwitch(fct_isthereanimage(handles)==1));
         set(handles.menus.QUIT, 'Enable', 'on');
     %Menu2 (Tools): those should remain on only when there is an image

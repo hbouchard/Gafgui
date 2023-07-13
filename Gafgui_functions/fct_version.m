@@ -7,7 +7,7 @@ function err = fct_version()
 
 %dumb = fileread('licenceGafgui.txt')
 s = sprintf('Gafgui version 4.0');
-s = sprintf('%s\nCopyright (C) 2007-2021 by Hugo Bouchard',s); 
+s = sprintf('%s\nCopyright (C) 2007-2023 by Hugo Bouchard',s); 
 s = sprintf('%s\nMy contact is h.bouchard@umontreal.ca',s);
 s = sprintf('%s\n',s);  
 s = sprintf('%s\nThis program is free software: you can redistribute it and/or modify',s); 
@@ -24,6 +24,10 @@ s = sprintf('%s\nYou should have received a copy of the GNU General Public Licen
 s = sprintf('%s\nalong with this program.  If not, see <http://www.gnu.org/licenses/>.',s); 
 s = sprintf('%s\n',s);  
 s = sprintf('%s\nBy using the software, you agree to its conditions.',s); 
+s = sprintf('%s\n',s);  
+s = sprintf('%s\nCredits:',s); 
+s = sprintf('%s\nWilliam Beaulieu',s); 
+s = sprintf('%s\nMohammed Hussein',s); 
 
 button = questdlg(s,'Version','I agree','I disagree','I agree');
 

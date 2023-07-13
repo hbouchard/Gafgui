@@ -48,7 +48,7 @@ function varargout = Gafgui(varargin)
 
 % Edit the above text to modify the response to help Gafgui
 
-% Last Modified by GUIDE v2.5 12-Jul-2022 00:17:52
+% Last Modified by GUIDE v2.5 13-Jul-2023 13:39:26
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -2549,6 +2549,45 @@ if fct_isthereanimage(handles)
 end
 
 % --------------------------------------------------------------------
+function EXPORT_VIGO_Callback(hObject, eventdata, handles)
+% hObject    handle to EXPORT_VIGO (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+%This was coded by Mohammed Hussein from NPL, July 2023
+
+if fct_isthereanimage(handles)
+    
+    label = 'Gafgui';
+    % exporting dose in Gy instead of cGy
+    dose = handles.z/100;
+    
+    nlines = size(handles.z,1);
+    ncols = size(handles.z,2);
+    [x,y] = fct_gridindextopos(nlines,ncols,handles.DELTA);
+    x = x - handles.ORIGIN(1);
+    y = y - handles.ORIGIN(2);
+    
+    % exporting scale in mm rather than cm
+    row_scale = y(:)*10;
+    col_scale = x(:)*10;
+    
+    tmp = handles.ifilename;
+    k = max(find(tmp=='.'));
+    if size(k>0)
+        tmp = [tmp(1:k-1) '_vigo.mat'];
+    end
+    [ifilename,ipathname]=uiputfile({'*.mat'},'Save to Vigo format',tmp);
+    
+    if ifilename==0
+    else
+        filename = fct_makecleanfilename(ipathname,ifilename);
+        save(filename,'dose','row_scale','col_scale','label');
+    end
+    
+end
+
+% --------------------------------------------------------------------
 function HOMOG_CREATECORRMAT_Callback(hObject, eventdata, handles)
 % hObject    handle to HOMOG_CREATECORRMAT (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -4186,3 +4225,4 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %Functions are (now) outside Gafgui in Gafgui_functions folder
+
